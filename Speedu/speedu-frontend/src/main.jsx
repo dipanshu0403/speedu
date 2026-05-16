@@ -862,7 +862,7 @@ function Footer({ services, go }) {
       <div>
         <h3>Contact</h3>
         <p>support@speedu.in</p>
-        <p>+91 98765 43210</p>
+        <p>+91 xxxxx-xxxxx</p>
       </div>
     </footer>
   );
@@ -933,10 +933,10 @@ function AdminLoginView({ loading, submitAdminLogin, message, error }) {
         <p className="muted">The admin panel is protected for the owner only.</p>
         <form className="form" onSubmit={submitAdminLogin}>
           <Field label="Admin email">
-            <input type="email" name="email" placeholder="dipanshumalviya9@gmail.com" required />
+            <input type="email" name="email" placeholder="Enter Your E-mail addressed" required />
           </Field>
           <Field label="Password">
-            <input type="password" name="password" placeholder="Enter admin password" required />
+            <input type="password" name="password" placeholder="Enter password" required />
           </Field>
           <button className="btn primary" disabled={loading}>
             <ShieldCheck size={17} /> Login as admin
