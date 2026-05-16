@@ -18,6 +18,7 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Trash2,
   UsersRound,
   WalletCards,
   UserRound,
@@ -36,6 +37,8 @@ const titleCase = (value = "") =>
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+const normalizeName = (value = "") => String(value || "").trim().replace(/\s+/g, " ");
+const sameName = (left = "", right = "") => normalizeName(left).toLowerCase() === normalizeName(right).toLowerCase();
 
 function decodeJwt(token) {
   try {
@@ -50,7 +53,7 @@ function App() {
   const [view, setView] = useState("home");
   const [authMode, setAuthMode] = useState("login");
   const [role, setRole] = useState(read("speedu_role", "customer"));
-  const [mobile, setMobile] = useState(read("speedu_mobile"));
+  const [mobile, setMobile] = useState("");
   const [token, setToken] = useState(read("speedu_access_token"));
   const [refreshToken, setRefreshToken] = useState(read("speedu_refresh_token"));
   const [adminToken, setAdminToken] = useState(read("speedu_admin_access_token"));
@@ -230,14 +233,23 @@ function App() {
 
   async function createService(event) {
     event.preventDefault();
-    const categoryName = new FormData(event.currentTarget).get("categoryName").trim();
+    const formElement = event.currentTarget;
+    const categoryName = normalizeName(new FormData(formElement).get("categoryName"));
+    if (!categoryName) {
+      flash("Service name required hai.", "error");
+      return;
+    }
+    if (services.some((service) => sameName(service.categoryName, categoryName))) {
+      flash(`${categoryName} service already exists. Duplicate service add nahi hogi.`, "error");
+      return;
+    }
     try {
       setLoading(true);
       await adminApi("/service/createService", {
         method: "POST",
         body: JSON.stringify({ categoryName }),
       });
-      event.currentTarget.reset();
+      formElement.reset();
       await loadServices();
       flash("Service created successfully.");
     } catch (err) {
@@ -249,19 +261,98 @@ function App() {
 
   async function createVariant(event) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const serviceId = form.get("serviceId");
-    const variantName = form.get("variantName").trim();
+    const variantName = normalizeName(form.get("variantName"));
     const variantPrice = Number(form.get("variantPrice"));
+    const service = services.find((item) => item._id === serviceId);
+    if (!serviceId || !service) {
+      flash("Pehle service select karo.", "error");
+      return;
+    }
+    if (!variantName) {
+      flash("Variant name required hai.", "error");
+      return;
+    }
+    if (!Number.isFinite(variantPrice) || variantPrice <= 0) {
+      flash("Variant price 0 se zyada hona chahiye.", "error");
+      return;
+    }
+    if ((service.variants || []).some((variant) => sameName(variant.variantName, variantName))) {
+      flash(`${variantName} variant ${service.categoryName} me already exists. Duplicate variant add nahi hoga.`, "error");
+      return;
+    }
     try {
       setLoading(true);
       await adminApi(`/service/${serviceId}/variant`, {
         method: "POST",
         body: JSON.stringify({ variantName, variantPrice }),
       });
-      event.currentTarget.reset();
+      formElement.reset();
       await loadServices();
       flash("Variant created successfully.");
+    } catch (err) {
+      flash(err.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function removeFromAdminApi(paths, successText, missingText) {
+    const attempts = [];
+
+    for (const path of paths) {
+      try {
+        const data = await adminApi(path, { method: "DELETE" });
+        if (data.success !== false) {
+          await loadServices();
+          flash(successText);
+          return;
+        }
+      } catch (err) {
+        attempts.push(`${path}: ${err.message}`);
+        if (!/not found|cannot|route|404|method/i.test(err.message)) throw err;
+      }
+    }
+
+    throw new Error(`${missingText} Tried: ${attempts.join(", ")}`);
+  }
+
+  async function removeService(service) {
+    if (!service?._id) return;
+    const serviceName = titleCase(service.categoryName || "service");
+    if (!window.confirm(`${serviceName} service remove karni hai? Iske variants bhi remove ho sakte hain.`)) return;
+    try {
+      setLoading(true);
+      await removeFromAdminApi(
+        [`/service/deleteServiceById/${service._id}`, `/service/${service._id}`, `/service/deleteService/${service._id}`, `/service/delete/${service._id}`],
+        `${serviceName} service removed.`,
+        "Backend me service delete route nahi mila."
+      );
+    } catch (err) {
+      flash(err.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function removeVariant(service, variant) {
+    if (!service?._id || !variant?._id) return;
+    const variantName = titleCase(variant.variantName || "variant");
+    if (!window.confirm(`${variantName} variant remove karna hai?`)) return;
+    try {
+      setLoading(true);
+      await removeFromAdminApi(
+        [
+          `/service/${service._id}/variant/${variant._id}`,
+          `/service/${service._id}/variant/delete/${variant._id}`,
+          `/service/variant/${variant._id}`,
+          `/service/deleteVariant/${variant._id}`,
+        ],
+        `${variantName} variant removed.`,
+        "Backend me variant delete route nahi mila."
+      );
     } catch (err) {
       flash(err.message, "error");
     } finally {
@@ -572,6 +663,8 @@ function App() {
           loading={loading}
           createService={createService}
           createVariant={createVariant}
+          removeService={removeService}
+          removeVariant={removeVariant}
           loadAdminData={loadAdminData}
           adminEmail={adminEmail}
           logoutAdmin={logoutAdmin}
@@ -792,7 +885,7 @@ function AuthView({ authMode, setAuthMode, role, mobile, loading, submitAuth, me
         </div>
         <form className="form" onSubmit={submitAuth}>
           <Field label="Mobile">
-            <input name="mobile" defaultValue={mobile} maxLength="10" pattern="[6-9][0-9]{9}" placeholder="9876543210" required />
+            <input name="mobile" defaultValue={mobile} maxLength="10" pattern="[6-9][0-9]{9}" placeholder="Enter mobile number" required />
           </Field>
           <Field label="Role">
             <select name="role" defaultValue={role}>
@@ -1102,14 +1195,27 @@ function AgentView({ bookings, profileId, loadBookings, updateBooking, message, 
   );
 }
 
-function AdminView({ services, bookings, payments, loading, createService, createVariant, loadAdminData, adminEmail, logoutAdmin, message, error }) {
+function AdminView({
+  services,
+  bookings,
+  payments,
+  loading,
+  createService,
+  createVariant,
+  removeService,
+  removeVariant,
+  loadAdminData,
+  logoutAdmin,
+  message,
+  error,
+}) {
   return (
     <section className="section">
       <Alerts message={message} error={error} />
       <div className="section-head">
         <div>
           <h2>Admin control</h2>
-          <p>Logged in as {adminEmail || "admin"}. Manage services, variants, bookings, and payments.</p>
+          <p>Manage services, variants, bookings, and payments.</p>
         </div>
         <div className="toolbar">
           <button className="btn secondary" onClick={() => loadAdminData()}><Settings size={17} /> Refresh</button>
@@ -1128,7 +1234,7 @@ function AdminView({ services, bookings, payments, loading, createService, creat
         <div className="card panel">
           <h3>Create service</h3>
           <form className="form" onSubmit={createService}>
-            <Field label="Service name"><input name="categoryName" placeholder="Electrician" required /></Field>
+            <Field label="Service name"><input name="categoryName" placeholder="Electrician" maxLength="60" required /></Field>
             <button className="btn primary" disabled={loading}><Plus size={17} /> Add service</button>
           </form>
         </div>
@@ -1145,8 +1251,8 @@ function AdminView({ services, bookings, payments, loading, createService, creat
               </select>
             </Field>
             <div className="split">
-              <Field label="Variant name"><input name="variantName" placeholder="Fan repair" required /></Field>
-              <Field label="Price"><input type="number" name="variantPrice" min="1" placeholder="199" required /></Field>
+              <Field label="Variant name"><input name="variantName" placeholder="Fan repair" maxLength="80" required /></Field>
+              <Field label="Price"><input type="number" name="variantPrice" min="1" step="1" placeholder="199" required /></Field>
             </div>
             <button className="btn primary" disabled={loading}><Plus size={17} /> Add variant</button>
           </form>
@@ -1159,10 +1265,33 @@ function AdminView({ services, bookings, payments, loading, createService, creat
           <div className="list">
             {services.length ? services.map((service) => (
               <div className="admin-service" key={service._id}>
-                <strong>{titleCase(service.categoryName)}</strong>
+                <div className="admin-service-head">
+                  <strong>{titleCase(service.categoryName)}</strong>
+                  <button
+                    className="icon-danger"
+                    type="button"
+                    title="Remove service"
+                    aria-label={`Remove ${service.categoryName}`}
+                    disabled={loading}
+                    onClick={() => removeService(service)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
                 <div className="chip-row">
                   {service.variants?.length ? service.variants.map((variant) => (
-                    <span className="chip" key={variant._id}>{variant.variantName} - {money(variant.variantPrice)}</span>
+                    <span className="chip removable-chip" key={variant._id}>
+                      <span>{variant.variantName} - {money(variant.variantPrice)}</span>
+                      <button
+                        type="button"
+                        title="Remove variant"
+                        aria-label={`Remove ${variant.variantName}`}
+                        disabled={loading}
+                        onClick={() => removeVariant(service, variant)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </span>
                   )) : <span className="muted">No variants</span>}
                 </div>
               </div>

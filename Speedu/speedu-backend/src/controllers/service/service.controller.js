@@ -7,11 +7,14 @@ exports.createService = async (req , res) => {
     try {
         logger.info("Create service api called ....");
         const { categoryName} = req.body;
-        const cateName = categoryName.toLowerCase().trim();
+        const cateName = String(categoryName || "").trim().replace(/\s+/g, " ").toLowerCase();
+        if (!cateName) {
+            return res.status(400).json({ success: false, message: "service name is required" });
+        }
         const isExist = await serviceModel.findOne ({ categoryName: cateName});
 
         if( isExist) {
-            return res.status(500).json({ success: false, message: "service allready exist", statusCode: 409});
+            return res.status(409).json({ success: false, message: "service already exists", statusCode: 409});
 
         }
         const cat = await serviceModel.create({ categoryName: cateName});
@@ -126,6 +129,22 @@ exports.createVariants = async (req, res) => {
         logger.info("creat variant api called");
         const {serviceId} = req.params;
         const {variantName, variantPrice} = req.body;
+        const cleanVariantName = String(variantName || "").trim().replace(/\s+/g, " ");
+        const cleanVariantPrice = Number(variantPrice);
+
+        if (!cleanVariantName) {
+            return res.status(400).json({
+                success: false,
+                message: "variant name is required",
+            });
+        }
+
+        if (!Number.isFinite(cleanVariantPrice) || cleanVariantPrice <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "variant price must be greater than 0",
+            });
+        }
 
         const service = await serviceModel.findOne({_id:serviceId});
 
@@ -135,7 +154,18 @@ exports.createVariants = async (req, res) => {
                 message: "service not found",
             });
         }
-        service.variants.push({variantName, variantPrice});
+        const variantExists = service.variants.some(
+            (variant) => String(variant.variantName || "").trim().replace(/\s+/g, " ").toLowerCase() === cleanVariantName.toLowerCase()
+        );
+
+        if (variantExists) {
+            return res.status(409).json({
+                success: false,
+                message: "variant already exists in this service",
+            });
+        }
+
+        service.variants.push({variantName: cleanVariantName, variantPrice: cleanVariantPrice});
         await service.save();
         return res.status(201).json({
             success: true,
