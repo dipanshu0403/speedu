@@ -50,6 +50,13 @@ app.use((req, res, next) => {
 });
 
 // static pages start
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Speedu backend is running",
+  });
+});
+
 app.get("/qr-redirect", (req, res) => {
   res.sendFile(path.join(__dirname, "../public/qr-redirect.html"));
 });
