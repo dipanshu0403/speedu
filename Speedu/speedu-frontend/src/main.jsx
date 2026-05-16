@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import "./styles.css";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "https://speedu-0qya.onrender.com/api";
 
 const read = (key, fallback = "") => localStorage.getItem(key) || fallback;
 const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;
