@@ -1,13 +1,17 @@
 /**
    * Speedu — Service Seed Script
+   * Node ki built-in http module use karta hai (koi extra package nahi chahiye)
    * Run: node seed.js
-   * Pehle .env me ADMIN_EMAIL, ADMIN_PASSWORD aur API_URL set karo
-   * Ya neeche directly values bhar do.
+   * 
+   * Apna admin email/password neeche bharo:
    */
 
-  const API_URL = process.env.API_URL || "http://localhost:5000";
-  const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@speedu.in";   // <-- apna email
-  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Admin@123";   // <-- apna password
+  const http = require("http");
+  const https = require("https");
+
+  const API_URL = "http://localhost:5000"; // apna backend URL
+  const ADMIN_EMAIL = "admin@speedu.in";  // <-- APNA EMAIL YAHAN
+  const ADMIN_PASSWORD = "Admin@123";     // <-- APNA PASSWORD YAHAN
 
   // ─── 22 Services + Variants ───────────────────────────────────────────────────
   const SERVICES = [
@@ -204,44 +208,77 @@
     },
   ];
 
-  // ─── Helper ───────────────────────────────────────────────────────────────────
-  async function req(path, options = {}, authToken) {
-    const headers = { "Content-Type": "application/json" };
-    if (authToken) headers.Authorization = `Bearer ${authToken}`;
-    const res = await fetch(`${API_URL}${path}`, { ...options, headers });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.success === false) throw new Error(data.message || `HTTP ${res.status}`);
-    return data;
+  // ─── HTTP helper (built-in, no fetch needed) ──────────────────────────────────
+  function request(urlStr, method, body, authToken) {
+    return new Promise((resolve, reject) => {
+      const url = new URL(urlStr);
+      const lib = url.protocol === "https:" ? https : http;
+      const payload = body ? JSON.stringify(body) : "";
+      const options = {
+        hostname: url.hostname,
+        port: url.port || (url.protocol === "https:" ? 443 : 80),
+        path: url.pathname,
+        method: method,
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload),
+        },
+      };
+      if (authToken) options.headers["Authorization"] = "Bearer " + authToken;
+
+      const req = lib.request(options, (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          try {
+            const json = JSON.parse(data);
+            if (res.statusCode >= 400 || json.success === false) {
+              reject(new Error(json.message || "HTTP " + res.statusCode));
+            } else {
+              resolve(json);
+            }
+          } catch {
+            reject(new Error("Invalid JSON response"));
+          }
+        });
+      });
+      req.on("error", reject);
+      if (payload) req.write(payload);
+      req.end();
+    });
   }
 
   // ─── Main ─────────────────────────────────────────────────────────────────────
-  (async () => {
-    console.log("\n🚀 Speedu Seed Script");
-    console.log("=====================");
+  async function main() {
+    console.log("\n Speedu Seed Script");
+    console.log("====================");
 
     // 1. Admin login
-    console.log("\n🔐 Admin login...");
+    console.log("\n Admin login...");
     let adminToken;
     try {
-      const login = await req("/admin/login", {
-        method: "POST",
-        body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
+      const login = await request(API_URL + "/admin/login", "POST", {
+        email: ADMIN_EMAIL,
+        password: ADMIN_PASSWORD,
       });
-      adminToken = login.data?.accessToken;
-      console.log("✅ Login successful");
+      adminToken = login.data && login.data.accessToken;
+      console.log("Login successful!");
     } catch (err) {
-      console.error("❌ Login failed:", err.message);
-      console.error("   API_URL:", API_URL);
-      console.error("   Email:", ADMIN_EMAIL);
+      console.error("Login failed:", err.message);
+      console.error("Check: API_URL =", API_URL, "| Email =", ADMIN_EMAIL);
       process.exit(1);
     }
 
-    // 2. Get existing services (to skip duplicates)
-    const existing = await req("/service/getService");
-    const existingNames = new Set(
-      (existing.data || []).map((s) => s.categoryName.trim().toLowerCase())
-    );
-    console.log(`\n📦 Already in DB: ${existingNames.size} services`);
+    // 2. Get existing services
+    let existingServices = [];
+    try {
+      const existing = await request(API_URL + "/service/getService", "GET", null, adminToken);
+      existingServices = existing.data || [];
+    } catch (err) {
+      console.error("Could not fetch existing services:", err.message);
+    }
+    const existingNames = new Set(existingServices.map((s) => s.categoryName.trim().toLowerCase()));
+    console.log("Already in DB:", existingNames.size, "services");
 
     // 3. Add services + variants
     let addedServices = 0;
@@ -249,58 +286,59 @@
 
     for (const svc of SERVICES) {
       const nameKey = svc.categoryName.trim().toLowerCase();
-
       let serviceId;
+
       if (existingNames.has(nameKey)) {
-        // Already exists — get its ID
-        const match = (existing.data || []).find(
-          (s) => s.categoryName.trim().toLowerCase() === nameKey
-        );
-        serviceId = match?._id;
-        console.log(`⏭  Skipping existing: ${svc.categoryName} (ID: ${serviceId})`);
+        const match = existingServices.find((s) => s.categoryName.trim().toLowerCase() === nameKey);
+        serviceId = match && match._id;
+        console.log("Skipping (exists):", svc.categoryName);
       } else {
-        // Create new service
         try {
-          const created = await req("/service/createService", {
-            method: "POST",
-            body: JSON.stringify({ categoryName: svc.categoryName }),
-          }, adminToken);
-          serviceId = created.data?._id;
+          const created = await request(
+            API_URL + "/service/createService",
+            "POST",
+            { categoryName: svc.categoryName },
+            adminToken
+          );
+          serviceId = created.data && created.data._id;
           existingNames.add(nameKey);
           addedServices++;
-          console.log(`✅ Service created: ${svc.categoryName}`);
+          console.log("Service created:", svc.categoryName);
         } catch (err) {
-          console.error(`❌ Failed to create ${svc.categoryName}: ${err.message}`);
+          console.error("Failed:", svc.categoryName, "-", err.message);
           continue;
         }
       }
 
       if (!serviceId) continue;
 
-      // Add variants
       for (const variant of svc.variants) {
         try {
-          await req(`/service/${serviceId}/variant`, {
-            method: "POST",
-            body: JSON.stringify({
-              variantName: variant.variantName,
-              variantPrice: variant.variantPrice,
-            }),
-          }, adminToken);
+          await request(
+            API_URL + "/service/" + serviceId + "/variant",
+            "POST",
+            { variantName: variant.variantName, variantPrice: variant.variantPrice },
+            adminToken
+          );
           addedVariants++;
-          console.log(`   + ${variant.variantName} — ₹${variant.variantPrice}`);
+          console.log("  + " + variant.variantName + " - Rs." + variant.variantPrice);
         } catch (err) {
           if (/already|exists|duplicate/i.test(err.message)) {
-            console.log(`   ⏭  Variant already exists: ${variant.variantName}`);
+            console.log("  (already exists):", variant.variantName);
           } else {
-            console.error(`   ❌ Variant failed: ${variant.variantName} — ${err.message}`);
+            console.error("  Variant failed:", variant.variantName, "-", err.message);
           }
         }
       }
     }
 
-    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log(`✅ Done! ${addedServices} services, ${addedVariants} variants added.`);
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-  })();
+    console.log("\n====================================");
+    console.log("Done!", addedServices, "services,", addedVariants, "variants added.");
+    console.log("====================================\n");
+  }
+
+  main().catch((err) => {
+    console.error("Unexpected error:", err.message);
+    process.exit(1);
+  });
   
