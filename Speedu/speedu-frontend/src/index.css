@@ -1,16 +1,16 @@
 @tailwind base;
-@tailwind components;
-@tailwind utilities;
+  @tailwind components;
+  @tailwind utilities;
 
-@layer base {
-  html {
-    @apply scroll-smooth;
+  @layer base {
+    html {
+      @apply scroll-smooth;
+    }
+    body {
+      @apply m-0 min-h-screen font-sans text-slate-800 antialiased bg-stone-50;
+    }
+    button:not(:disabled),
+    [role="button"]:not(:disabled) {
+      @apply cursor-pointer;
+    }
   }
-  body {
-    @apply m-0 min-h-screen font-sans text-slate-900 antialiased;
-  }
-  button:not(:disabled),
-  [role="button"]:not(:disabled) {
-    @apply cursor-pointer;
-  }
-}
