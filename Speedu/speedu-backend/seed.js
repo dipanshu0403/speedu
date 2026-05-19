@@ -1,13 +1,32 @@
-// Speedu Seed Script — CommonJS, no imports needed
-  // Node 18+ ka global fetch use karta hai
+// Speedu Direct MongoDB Seed Script
+  // Backend chalu karne ki zaroorat NAHI hai
   // Run: node seed.js
+  // Ye script seedha MongoDB me data daalti hai
 
-  const API_URL = "http://localhost:5000";
-  const ADMIN_EMAIL = "dipanshumalviya9@gmail.com";
-  const ADMIN_PASSWORD = "123456";
+  require("dotenv").config();
+  const mongoose = require("mongoose");
+
+  const MONGO_URI = process.env.MONGO_URI;
+  const DB_NAME = process.env.DB_NAME || "speedu";
+
+  if (!MONGO_URI) {
+    console.error("ERROR: MONGO_URI .env me nahi mila!");
+    console.error(".env file check karo speedu-backend folder me");
+    process.exit(1);
+  }
+
+  // Service Schema (model ke same)
+  const serviceSchema = new mongoose.Schema(
+    {
+      categoryName: String,
+      variants: [{ variantName: String, variantPrice: Number }],
+    },
+    { timestamps: true }
+  );
+  const Service = mongoose.model("service", serviceSchema);
 
   const SERVICES = [
-    { categoryName: "Electrician", variants: [{ variantName: "Fan Installation", variantPrice: 299 }, { variantName: "Wiring & Rewiring", variantPrice: 799 }, { variantName: "Switchboard Repair", variantPrice: 399 }, { variantName: "MCB Fuse Replacement", variantPrice: 249 }] },
+    { categoryName: "Electrician", variants: [{ variantName: "Fan Installation", variantPrice: 299 }, { variantName: "Wiring Rewiring", variantPrice: 799 }, { variantName: "Switchboard Repair", variantPrice: 399 }, { variantName: "MCB Fuse Replacement", variantPrice: 249 }] },
     { categoryName: "Plumber", variants: [{ variantName: "Pipe Leakage Fix", variantPrice: 349 }, { variantName: "Tap Faucet Repair", variantPrice: 199 }, { variantName: "Bathroom Fitting", variantPrice: 999 }, { variantName: "Drainage Unclogging", variantPrice: 499 }] },
     { categoryName: "Carpenter", variants: [{ variantName: "Door Window Repair", variantPrice: 449 }, { variantName: "Furniture Assembly", variantPrice: 599 }, { variantName: "Cupboard Installation", variantPrice: 1299 }, { variantName: "Lock Replacement", variantPrice: 299 }] },
     { categoryName: "Painter", variants: [{ variantName: "Room Painting 1BHK", variantPrice: 3999 }, { variantName: "Room Painting 2BHK", variantPrice: 6999 }, { variantName: "Exterior Painting", variantPrice: 9999 }, { variantName: "Wall Putty", variantPrice: 1999 }] },
@@ -31,82 +50,56 @@
     { categoryName: "Door Lock Security", variants: [{ variantName: "Lock Repair", variantPrice: 299 }, { variantName: "Smart Lock Installation", variantPrice: 1999 }, { variantName: "Key Duplicate", variantPrice: 149 }] },
   ];
 
-  async function callApi(path, method, body, token) {
-    const opts = { method: method, headers: { "Content-Type": "application/json" } };
-    if (token) opts.headers["Authorization"] = "Bearer " + token;
-    if (body) opts.body = JSON.stringify(body);
-    const res = await fetch(API_URL + path, opts);
-    const data = await res.json().catch(function() { return {}; });
-    if (!res.ok || data.success === false) throw new Error(data.message || "HTTP " + res.status);
-    return data;
-  }
-
   async function run() {
-    console.log("\nSpeedu Seed Script starting...");
+    console.log("\nSpeedu MongoDB Seed");
+    console.log("====================");
+    console.log("Connecting to MongoDB...");
 
-    var adminToken;
-    try {
-      var login = await callApi("/admin/login", "POST", { email: ADMIN_EMAIL, password: ADMIN_PASSWORD }, null);
-      adminToken = login.data && login.data.accessToken;
-      console.log("Admin login OK");
-    } catch (e) {
-      console.error("Login failed:", e.message);
-      console.error("Make sure backend is running on", API_URL);
-      return;
-    }
+    await mongoose.connect(MONGO_URI, {
+      dbName: DB_NAME,
+      serverSelectionTimeoutMS: 10000,
+    });
+    console.log("Connected!\n");
 
-    var existing = await callApi("/service/getService", "GET", null, adminToken);
-    var existingList = (existing.data || []);
-    var existingNames = {};
-    for (var i = 0; i < existingList.length; i++) {
-      existingNames[existingList[i].categoryName.trim().toLowerCase()] = existingList[i]._id;
-    }
-    console.log("Services already in DB:", Object.keys(existingNames).length);
+    // Get existing service names to skip duplicates
+    const existing = await Service.find({}, { categoryName: 1 });
+    const existingNames = new Set(existing.map((s) => s.categoryName.trim().toLowerCase()));
+    console.log("Already in DB:", existingNames.size, "services\n");
 
-    var addedSvc = 0;
-    var addedVar = 0;
+    let addedSvc = 0;
+    let addedVar = 0;
 
-    for (var s = 0; s < SERVICES.length; s++) {
-      var svc = SERVICES[s];
-      var key = svc.categoryName.trim().toLowerCase();
-      var serviceId;
+    for (const svc of SERVICES) {
+      const key = svc.categoryName.trim().toLowerCase();
 
-      if (existingNames[key]) {
-        serviceId = existingNames[key];
+      if (existingNames.has(key)) {
         console.log("Skip (exists):", svc.categoryName);
-      } else {
-        try {
-          var created = await callApi("/service/createService", "POST", { categoryName: svc.categoryName }, adminToken);
-          serviceId = created.data && created.data._id;
-          existingNames[key] = serviceId;
-          addedSvc++;
-          console.log("Created:", svc.categoryName);
-        } catch (e) {
-          console.error("Failed:", svc.categoryName, e.message);
-          continue;
-        }
+        continue;
       }
 
-      if (!serviceId) continue;
-
-      for (var v = 0; v < svc.variants.length; v++) {
-        var variant = svc.variants[v];
-        try {
-          await callApi("/service/" + serviceId + "/variant", "POST", { variantName: variant.variantName, variantPrice: variant.variantPrice }, adminToken);
-          addedVar++;
-          console.log("  + " + variant.variantName + " Rs." + variant.variantPrice);
-        } catch (e) {
-          if (/already|exists|duplicate/i.test(e.message)) {
-            console.log("  (skip):", variant.variantName);
-          } else {
-            console.error("  Error:", variant.variantName, e.message);
-          }
-        }
+      try {
+        const created = await Service.create({
+          categoryName: svc.categoryName,
+          variants: svc.variants,
+        });
+        addedSvc++;
+        addedVar += svc.variants.length;
+        console.log("Created:", svc.categoryName, "(" + svc.variants.length + " variants)");
+      } catch (e) {
+        console.error("Failed:", svc.categoryName, "-", e.message);
       }
     }
 
-    console.log("\nDone! Added", addedSvc, "services and", addedVar, "variants.");
+    console.log("\n================================");
+    console.log("Done!", addedSvc, "services added,", addedVar, "variants added!");
+    console.log("================================\n");
+
+    await mongoose.disconnect();
+    process.exit(0);
   }
 
-  run().catch(function(e) { console.error("Error:", e.message); });
+  run().catch((e) => {
+    console.error("Error:", e.message);
+    process.exit(1);
+  });
   
