@@ -1,5 +1,5 @@
 const CustomerModel = require("../../models/customer.model");
-  const serviceModel = require("../../models/service.model");
+  const UserModel = require("../../models/user.model");
   const logger = require("../../utils/logger");
 
   exports.customerProfile = async (req, res, next) => {
@@ -7,18 +7,12 @@ const CustomerModel = require("../../models/customer.model");
       const { userId } = req.params;
       const { fullName, email, gender, dob } = req.body;
 
-      let profileLink = null;
-      if (req.file) {
-        profileLink = `/uploads/${req.file.filename}`;
-      }
-
       // Build update data - only include fields that were sent
       const updateData = { userId };
       if (fullName) updateData.fullName = fullName;
       if (email) updateData.email = email;
       if (gender) updateData.gender = gender;
       if (dob) updateData.dob = dob;
-      if (profileLink) updateData.profileLink = profileLink;
 
       // findOneAndUpdate with upsert: creates if not exists, updates if exists
       // This fixes the DOB issue - no more duplicate profiles
@@ -27,6 +21,9 @@ const CustomerModel = require("../../models/customer.model");
         { $set: updateData },
         { new: true, upsert: true }
       );
+
+      // Mark profile as completed in user model so login doesn't ask again
+      await UserModel.findByIdAndUpdate(userId, { isProfileCompleted: true });
 
       return res.status(200).json({
         success: true,
@@ -61,10 +58,6 @@ const CustomerModel = require("../../models/customer.model");
       if (gender) customer.gender = gender;
       if (dob) customer.dob = dob;
 
-      if (req.file) {
-        customer.profileLink = `/uploads/${req.file.filename}`;
-      }
-
       await customer.save();
 
       return res.status(200).json({
@@ -72,7 +65,6 @@ const CustomerModel = require("../../models/customer.model");
         message: "Customer profile updated successfully",
         data: customer,
       });
-
     } catch (error) {
       logger.error("Error", error);
       return res.status(500).json({
