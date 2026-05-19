@@ -8,17 +8,17 @@ import { LogOut, Phone, User, Edit } from "lucide-react";
     return (
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white px-4 py-3 shadow-sm sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          {/* Logo - icon only, no text */}
+
+          {/* Logo: S icon + Speedu text */}
           <button
             type="button"
             onClick={() => go("home")}
-            className="inline-flex items-center gap-2 rounded-xl border-0 bg-transparent text-left"
+            className="inline-flex items-center gap-3 rounded-xl border-0 bg-transparent text-left"
           >
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600 text-white shadow-sm">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-              </svg>
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600 text-white font-black text-xl shadow-sm select-none">
+              S
             </span>
+            <span className="text-lg font-extrabold tracking-tight text-slate-800">Speedu</span>
           </button>
 
           <nav className="flex flex-wrap items-center gap-2">
