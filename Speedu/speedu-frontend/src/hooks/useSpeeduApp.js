@@ -22,11 +22,8 @@ import { useEffect, useMemo, useState } from "react";
     });
     const [isUpdateProfile, setIsUpdateProfile] = useState(false);
     const [addresses, setAddresses] = useState(() => {
-      try {
-        return JSON.parse(localStorage.getItem("speedu_addresses") || "[]");
-      } catch {
-        return [];
-      }
+      try { return JSON.parse(localStorage.getItem("speedu_addresses") || "[]"); }
+      catch { return []; }
     });
     const [services, setServices] = useState([]);
     const [selectedService, setSelectedService] = useState(null);
@@ -52,10 +49,7 @@ import { useEffect, useMemo, useState } from "react";
     async function api(path, options = {}) {
       const headers = options.body instanceof FormData ? {} : { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
-      const response = await fetch(`${API_BASE}${path}`, {
-        ...options,
-        headers: { ...headers, ...(options.headers || {}) },
-      });
+      const response = await fetch(`${API_BASE}${path}`, { ...options, headers: { ...headers, ...(options.headers || {}) } });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.success === false) throw new Error(data.message || "Request failed");
       return data;
@@ -64,10 +58,7 @@ import { useEffect, useMemo, useState } from "react";
     async function adminApi(path, options = {}, tokenOverride = adminToken) {
       const headers = options.body instanceof FormData ? {} : { "Content-Type": "application/json" };
       if (tokenOverride) headers.Authorization = `Bearer ${tokenOverride}`;
-      const response = await fetch(`${API_BASE}${path}`, {
-        ...options,
-        headers: { ...headers, ...(options.headers || {}) },
-      });
+      const response = await fetch(`${API_BASE}${path}`, { ...options, headers: { ...headers, ...(options.headers || {}) } });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.success === false) throw new Error(data.message || "Admin request failed");
       return data;
@@ -76,17 +67,12 @@ import { useEffect, useMemo, useState } from "react";
     function flash(text, type = "success") {
       if (!text) return;
       const id = `${Date.now()}-${Math.random()}`;
-      setMessage("");
-      setError("");
+      setMessage(""); setError("");
       setToasts((current) => [...current, { id, text, type }].slice(-4));
-      window.setTimeout(() => {
-        setToasts((current) => current.filter((toast) => toast.id !== id));
-      }, 4200);
+      window.setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), 4200);
     }
 
-    function dismissToast(id) {
-      setToasts((current) => current.filter((toast) => toast.id !== id));
-    }
+    function dismissToast(id) { setToasts((current) => current.filter((t) => t.id !== id)); }
 
     function saveSession(data) {
       const payload = decodeJwt(data.accessToken || "");
@@ -94,10 +80,7 @@ import { useEffect, useMemo, useState } from "react";
       const nextRefresh = data.refreshToken || "";
       const nextRole = data.role || role;
       const nextUserId = data.userId || payload.userId || payload.id || "";
-      setToken(nextToken);
-      setRefreshToken(nextRefresh);
-      setRole(nextRole);
-      setUserId(nextUserId);
+      setToken(nextToken); setRefreshToken(nextRefresh); setRole(nextRole); setUserId(nextUserId);
       localStorage.setItem("speedu_access_token", nextToken);
       localStorage.setItem("speedu_refresh_token", nextRefresh);
       localStorage.setItem("speedu_role", nextRole);
@@ -105,38 +88,27 @@ import { useEffect, useMemo, useState } from "react";
     }
 
     function saveProfile(id, type, profileData) {
-      setProfileId(id || "");
-      setProfileType(type || "");
+      setProfileId(id || ""); setProfileType(type || "");
       localStorage.setItem("speedu_profile_id", id || "");
       localStorage.setItem("speedu_profile_type", type || "");
       if (profileData) {
         const name = profileData.fullName || "";
-        setUserName(name);
-        setUserInfo(profileData);
+        setUserName(name); setUserInfo(profileData);
         localStorage.setItem("speedu_user_name", name);
         localStorage.setItem("speedu_user_info", JSON.stringify(profileData));
       }
     }
 
     function saveAddresses(nextAddresses) {
-      const cleanAddresses = nextAddresses || [];
-      setAddresses(cleanAddresses);
-      localStorage.setItem("speedu_addresses", JSON.stringify(cleanAddresses));
+      const clean = nextAddresses || [];
+      setAddresses(clean);
+      localStorage.setItem("speedu_addresses", JSON.stringify(clean));
     }
 
     function logout() {
-      [
-        "speedu_access_token",
-        "speedu_refresh_token",
-        "speedu_role",
-        "speedu_mobile",
-        "speedu_user_id",
-        "speedu_profile_id",
-        "speedu_profile_type",
-        "speedu_addresses",
-        "speedu_user_name",
-        "speedu_user_info",
-      ].forEach((key) => localStorage.removeItem(key));
+      ["speedu_access_token","speedu_refresh_token","speedu_role","speedu_mobile",
+       "speedu_user_id","speedu_profile_id","speedu_profile_type","speedu_addresses",
+       "speedu_user_name","speedu_user_info"].forEach((k) => localStorage.removeItem(k));
       location.reload();
     }
 
@@ -144,24 +116,14 @@ import { useEffect, useMemo, useState } from "react";
       localStorage.removeItem("speedu_admin_access_token");
       localStorage.removeItem("speedu_admin_refresh_token");
       localStorage.removeItem("speedu_admin_email");
-      setAdminToken("");
-      setAdminEmail("");
-      setView("home");
+      setAdminToken(""); setAdminEmail(""); setView("home");
     }
 
-    // Opens profile form in update mode (from navbar dropdown)
-    function goUpdateProfile() {
-      setIsUpdateProfile(true);
-      setView("profile");
-    }
+    function goUpdateProfile() { setIsUpdateProfile(true); setView("profile"); }
 
     async function loadServices() {
-      try {
-        const result = await api("/service/getService");
-        setServices(result.data || []);
-      } catch (err) {
-        flash(err.message, "error");
-      }
+      try { const result = await api("/service/getService"); setServices(result.data || []); }
+      catch (err) { flash(err.message, "error"); }
     }
 
     async function loadBookings() {
@@ -171,9 +133,7 @@ import { useEffect, useMemo, useState } from "react";
         const result = await api(path);
         if (role === "agent") setAgentBookings(result.data || []);
         else setBookings(result.data || []);
-      } catch (err) {
-        flash(err.message, "error");
-      }
+      } catch (err) { flash(err.message, "error"); }
     }
 
     async function loadAdminData(tokenOverride = adminToken) {
@@ -185,21 +145,14 @@ import { useEffect, useMemo, useState } from "react";
         ]);
         setAdminBookings(bookingResult.data || []);
         setPayments(paymentResult.data || []);
-      } catch (err) {
-        flash(err.message, "error");
-      }
+      } catch (err) { flash(err.message, "error"); }
     }
 
     async function go(nextView) {
-      setMessage("");
-      setError("");
-      // Reset update mode when navigating away from profile
+      setMessage(""); setError("");
       if (nextView !== "profile") setIsUpdateProfile(false);
       setView(nextView);
-      if (nextView === "admin" && !adminToken) {
-        setView("adminLogin");
-        return;
-      }
+      if (nextView === "admin" && !adminToken) { setView("adminLogin"); return; }
       if (nextView === "home") await loadServices();
       if (nextView === "bookings" || nextView === "agent") await loadBookings();
       if (nextView === "admin") await loadAdminData();
@@ -210,21 +163,14 @@ import { useEffect, useMemo, useState } from "react";
       const formElement = event.currentTarget;
       const categoryName = normalizeName(new FormData(formElement).get("categoryName"));
       if (!categoryName) { flash("Service name required hai.", "error"); return; }
-      if (services.some((service) => sameName(service.categoryName, categoryName))) {
-        flash(`${categoryName} service already exists. Duplicate service add nahi hogi.`, "error");
-        return;
+      if (services.some((s) => sameName(s.categoryName, categoryName))) {
+        flash(`${categoryName} service already exists.`, "error"); return;
       }
       try {
         setLoading(true);
         await adminApi("/service/createService", { method: "POST", body: JSON.stringify({ categoryName }) });
-        formElement.reset();
-        await loadServices();
-        flash("Service created successfully.");
-      } catch (err) {
-        flash(err.message, "error");
-      } finally {
-        setLoading(false);
-      }
+        formElement.reset(); await loadServices(); flash("Service created successfully.");
+      } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
 
     async function createVariant(event) {
@@ -237,24 +183,15 @@ import { useEffect, useMemo, useState } from "react";
       const service = services.find((item) => item._id === serviceId);
       if (!serviceId || !service) { flash("Pehle service select karo.", "error"); return; }
       if (!variantName) { flash("Variant name required hai.", "error"); return; }
-      if (!Number.isFinite(variantPrice) || variantPrice <= 0) {
-        flash("Variant price 0 se zyada hona chahiye.", "error"); return;
-      }
-      if ((service.variants || []).some((variant) => sameName(variant.variantName, variantName))) {
-        flash(`${variantName} variant ${service.categoryName} me already exists. Duplicate variant add nahi hoga.`, "error");
-        return;
+      if (!Number.isFinite(variantPrice) || variantPrice <= 0) { flash("Variant price 0 se zyada hona chahiye.", "error"); return; }
+      if ((service.variants || []).some((v) => sameName(v.variantName, variantName))) {
+        flash(`${variantName} variant already exists.`, "error"); return;
       }
       try {
         setLoading(true);
         await adminApi(`/service/${serviceId}/variant`, { method: "POST", body: JSON.stringify({ variantName, variantPrice }) });
-        formElement.reset();
-        await loadServices();
-        flash("Variant created successfully.");
-      } catch (err) {
-        flash(err.message, "error");
-      } finally {
-        setLoading(false);
-      }
+        formElement.reset(); await loadServices(); flash("Variant created successfully.");
+      } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
 
     async function removeFromAdminApi(paths, successText, missingText) {
@@ -274,19 +211,14 @@ import { useEffect, useMemo, useState } from "react";
     async function removeService(service) {
       if (!service?._id) return;
       const serviceName = titleCase(service.categoryName || "service");
-      if (!window.confirm(`${serviceName} service remove karni hai? Iske variants bhi remove ho sakte hain.`)) return;
+      if (!window.confirm(`${serviceName} service remove karni hai?`)) return;
       try {
         setLoading(true);
         await removeFromAdminApi(
-          [`/service/deleteServiceById/${service._id}`, `/service/${service._id}`, `/service/deleteService/${service._id}`, `/service/delete/${service._id}`],
-          `${serviceName} service removed.`,
-          "Backend me service delete route nahi mila.",
+          [`/service/deleteServiceById/${service._id}`,`/service/${service._id}`,`/service/deleteService/${service._id}`,`/service/delete/${service._id}`],
+          `${serviceName} service removed.`, "Backend me service delete route nahi mila.",
         );
-      } catch (err) {
-        flash(err.message, "error");
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
 
     async function removeVariant(service, variant) {
@@ -296,15 +228,10 @@ import { useEffect, useMemo, useState } from "react";
       try {
         setLoading(true);
         await removeFromAdminApi(
-          [`/service/${service._id}/variant/${variant._id}`, `/service/${service._id}/variant/delete/${variant._id}`, `/service/variant/${variant._id}`, `/service/deleteVariant/${variant._id}`],
-          `${variantName} variant removed.`,
-          "Backend me variant delete route nahi mila.",
+          [`/service/${service._id}/variant/${variant._id}`,`/service/${service._id}/variant/delete/${variant._id}`,`/service/variant/${variant._id}`,`/service/deleteVariant/${variant._id}`],
+          `${variantName} variant removed.`, "Backend me variant delete route nahi mila.",
         );
-      } catch (err) {
-        flash(err.message, "error");
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
 
     async function submitAuth(event) {
@@ -312,24 +239,14 @@ import { useEffect, useMemo, useState } from "react";
       const form = new FormData(event.currentTarget);
       const nextMobile = form.get("mobile").trim();
       const nextRole = form.get("role");
-      setMobile(nextMobile);
-      setRole(nextRole);
+      setMobile(nextMobile); setRole(nextRole);
       localStorage.setItem("speedu_mobile", nextMobile);
       localStorage.setItem("speedu_role", nextRole);
       try {
         setLoading(true);
-        const result = await api(`/auth/${authMode}`, {
-          method: "POST",
-          body: JSON.stringify({ mobile: nextMobile, role: nextRole }),
-        });
-        setOtpHint(result.data?.otp || "");
-        setView("otp");
-        flash("OTP sent successfully.");
-      } catch (err) {
-        flash(err.message, "error");
-      } finally {
-        setLoading(false);
-      }
+        const result = await api(`/auth/${authMode}`, { method: "POST", body: JSON.stringify({ mobile: nextMobile, role: nextRole }) });
+        setOtpHint(result.data?.otp || ""); setView("otp"); flash("OTP sent successfully.");
+      } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
 
     async function submitAdminLogin(event) {
@@ -341,19 +258,12 @@ import { useEffect, useMemo, useState } from "react";
         setLoading(true);
         const result = await api("/admin/login", { method: "POST", body: JSON.stringify({ email, password }) });
         const data = result.data || {};
-        setAdminToken(data.accessToken || "");
-        setAdminEmail(data.email || email);
+        setAdminToken(data.accessToken || ""); setAdminEmail(data.email || email);
         localStorage.setItem("speedu_admin_access_token", data.accessToken || "");
         localStorage.setItem("speedu_admin_refresh_token", data.refreshToken || "");
         localStorage.setItem("speedu_admin_email", data.email || email);
-        setView("admin");
-        await loadAdminData(data.accessToken);
-        flash("Admin login successful.");
-      } catch (err) {
-        flash(err.message, "error");
-      } finally {
-        setLoading(false);
-      }
+        setView("admin"); await loadAdminData(data.accessToken); flash("Admin login successful.");
+      } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
 
     async function verifyOtp(event) {
@@ -361,46 +271,37 @@ import { useEffect, useMemo, useState } from "react";
       const otp = new FormData(event.currentTarget).get("otp").trim();
       try {
         setLoading(true);
-        const result = await api("/auth/verify-otp", {
-          method: "POST",
-          body: JSON.stringify({ mobile, role, otp }),
-        });
+        const result = await api("/auth/verify-otp", { method: "POST", body: JSON.stringify({ mobile, role, otp }) });
         saveSession(result.data || {});
-        const completed = result.data?.isProfileCompleted && profileId && profileType === role;
-        const nextView = completed ? (role === "agent" ? "agent" : "home") : "profile";
+
+        // FIX: Only check isProfileCompleted from backend - no profileId check
+        // This ensures profile form shows only ONCE (first login), never again
+        const isCompleted = result.data?.isProfileCompleted === true;
+        const nextView = isCompleted ? (role === "agent" ? "agent" : "home") : "profile";
         setIsUpdateProfile(false);
         setView(nextView);
         if (nextView === "home") await loadServices();
         if (nextView === "agent") await loadBookings();
         flash("Login successful.");
-      } catch (err) {
-        flash(err.message, "error");
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
 
     async function submitProfile(event) {
       event.preventDefault();
       if (!userId) {
-        flash("We could not connect your profile after login. Please make sure the backend returns user details after OTP verification.", "error");
-        return;
+        flash("Session expired. Please login again.", "error"); return;
       }
       try {
         setLoading(true);
         const path = role === "agent" ? `/agent/agentProfile/${userId}` : `/customer/profile/${userId}`;
         const result = await api(path, { method: "POST", body: new FormData(event.currentTarget) });
         saveProfile(result.data?._id, role, result.data);
-        const nextView = isUpdateProfile ? (role === "agent" ? "agent" : "home") : (role === "agent" ? "agent" : "home");
         setIsUpdateProfile(false);
+        const nextView = role === "agent" ? "agent" : "home";
         setView(nextView);
         if (nextView === "home") await loadServices();
         flash(isUpdateProfile ? "Profile updated successfully." : "Profile saved successfully.");
-      } catch (err) {
-        flash(err.message, "error");
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
 
     async function addAddress(event) {
@@ -411,29 +312,16 @@ import { useEffect, useMemo, useState } from "react";
       try {
         setLoading(true);
         const result = await api(path, { method: "POST", body: JSON.stringify(body) });
-        const nextAddresses = result.data || [];
-        saveAddresses(nextAddresses);
-        event.currentTarget.reset();
-        flash("Address saved successfully.");
-      } catch (err) {
-        flash(err.message, "error");
-      } finally {
-        setLoading(false);
-      }
+        saveAddresses(result.data || []); event.currentTarget.reset(); flash("Address saved successfully.");
+      } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
 
     async function openService(serviceId) {
       try {
         setLoading(true);
         const result = await api(`/service/getServiceById/${serviceId}`);
-        setSelectedService(result.data);
-        setSelectedVariant(null);
-        setView("service");
-      } catch (err) {
-        flash(err.message, "error");
-      } finally {
-        setLoading(false);
-      }
+        setSelectedService(result.data); setSelectedVariant(null); setView("service");
+      } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
 
     async function createBooking(event) {
@@ -448,59 +336,35 @@ import { useEffect, useMemo, useState } from "react";
         }
         const addressResult = await api(`/customer/addresses/${profileId}`, { method: "POST", body: JSON.stringify(addressBody) });
         const nextAddresses = addressResult.data || [];
-        saveAddresses(nextAddresses);
-        addressId = nextAddresses.at(-1)?._id;
+        saveAddresses(nextAddresses); addressId = nextAddresses.at(-1)?._id;
       }
       if (!addressId) { flash("We could not save your address. Please try again.", "error"); return; }
       const body = { customerId: profileId, serviceId: selectedService._id, variantId: selectedVariant._id, bookingDate: form.get("bookingDate"), bookingTime: form.get("bookingTime"), addressId };
       try {
         setLoading(true);
         const result = await api("/booking/create", { method: "POST", body: JSON.stringify(body) });
-        setDraftBooking(result.data);
-        setView("payment");
-        flash("Booking created. Please complete the payment.");
-      } catch (err) {
-        flash(err.message, "error");
-      } finally {
-        setLoading(false);
-      }
+        setDraftBooking(result.data); setView("payment"); flash("Booking created. Please complete the payment.");
+      } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
 
     async function createPayment(event) {
       event.preventDefault();
       try {
         setLoading(true);
-        const result = await api("/payment/create", {
-          method: "POST",
-          body: JSON.stringify({ bookingId: draftBooking._id, customerId: profileId, paymentMethod: new FormData(event.currentTarget).get("paymentMethod") }),
-        });
-        setPaymentResult(result.data);
-        setView("paymentSuccess");
-        await loadBookings();
-        flash("Payment successful.");
-      } catch (err) {
-        flash(err.message, "error");
-      } finally {
-        setLoading(false);
-      }
+        const result = await api("/payment/create", { method: "POST", body: JSON.stringify({ bookingId: draftBooking._id, customerId: profileId, paymentMethod: new FormData(event.currentTarget).get("paymentMethod") }) });
+        setPaymentResult(result.data); setView("paymentSuccess"); await loadBookings(); flash("Payment successful.");
+      } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
 
     async function updateBooking(bookingId, action, payload = {}) {
       try {
         setLoading(true);
         await api(`/booking/${action}/${bookingId}`, { method: "PATCH", body: JSON.stringify(payload) });
-        await loadBookings();
-        flash("Booking updated.");
-      } catch (err) {
-        flash(err.message, "error");
-      } finally {
-        setLoading(false);
-      }
+        await loadBookings(); flash("Booking updated.");
+      } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
 
-    useEffect(() => {
-      loadServices();
-    }, []);
+    useEffect(() => { loadServices(); }, []);
 
     return {
       view, setView, authMode, setAuthMode, role, mobile, token, refreshToken,
@@ -516,4 +380,3 @@ import { useEffect, useMemo, useState } from "react";
       addAddress, openService, createBooking, createPayment, updateBooking,
     };
   }
-  
