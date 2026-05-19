@@ -6,19 +6,19 @@ import { LogOut, Phone, User, Edit } from "lucide-react";
     const [dropdownOpen, setDropdownOpen] = useState(false);
 
     return (
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white px-4 py-3 shadow-sm sm:px-8 lg:px-12">
+      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 px-4 py-3 backdrop-blur-xl sm:px-8 lg:px-12">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
-          {/* Logo: S icon + Speedu text */}
+          {/* Logo: S square + Speedu text */}
           <button
             type="button"
             onClick={() => go("home")}
             className="inline-flex items-center gap-3 rounded-xl border-0 bg-transparent text-left"
           >
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600 text-white font-black text-xl shadow-sm select-none">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-black text-xl shadow-md select-none">
               S
             </span>
-            <span className="text-lg font-extrabold tracking-tight text-slate-800">Speedu</span>
+            <span className="text-lg font-extrabold tracking-tight text-slate-900">Speedu</span>
           </button>
 
           <nav className="flex flex-wrap items-center gap-2">
@@ -39,7 +39,7 @@ import { LogOut, Phone, User, Edit } from "lucide-react";
                 <button
                   type="button"
                   onClick={() => setDropdownOpen((prev) => !prev)}
-                  className="grid h-10 w-10 place-items-center rounded-full bg-indigo-600 text-white text-sm font-bold shadow-sm hover:bg-indigo-700 transition-colors"
+                  className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-white text-sm font-bold shadow-md hover:from-emerald-700 hover:to-teal-800 transition-all"
                   title={userName || "Profile"}
                 >
                   {userName ? userName.charAt(0).toUpperCase() : <User className="h-5 w-5" />}
@@ -48,13 +48,13 @@ import { LogOut, Phone, User, Edit } from "lucide-react";
                 {dropdownOpen && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(false)} />
-                    <div className="absolute right-0 z-20 mt-2 w-64 rounded-2xl border border-slate-200 bg-white p-4 shadow-lg">
+                    <div className="absolute right-0 z-20 mt-2 w-64 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
                       <div className="mb-3 flex items-center gap-3 border-b border-slate-100 pb-3">
-                        <span className="grid h-10 w-10 place-items-center rounded-full bg-indigo-100 text-indigo-700 text-sm font-bold">
+                        <span className="grid h-10 w-10 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-sm font-bold">
                           {userName ? userName.charAt(0).toUpperCase() : <User className="h-5 w-5" />}
                         </span>
                         <div>
-                          <p className="font-semibold text-slate-800">{userName || "User"}</p>
+                          <p className="font-semibold text-slate-900">{userName || "User"}</p>
                           <p className="text-xs text-slate-500 capitalize">{role}</p>
                         </div>
                       </div>
@@ -87,7 +87,7 @@ import { LogOut, Phone, User, Edit } from "lucide-react";
                       <button
                         type="button"
                         onClick={() => { setDropdownOpen(false); goUpdateProfile(); }}
-                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors"
+                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition-all"
                       >
                         <Edit className="h-4 w-4" />
                         Update Profile
@@ -96,7 +96,7 @@ import { LogOut, Phone, User, Edit } from "lucide-react";
                       <button
                         type="button"
                         onClick={() => { setDropdownOpen(false); logout(); }}
-                        className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-100 transition-colors"
+                        className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-100 transition-all"
                       >
                         <LogOut className="h-4 w-4" />
                         Logout
@@ -116,4 +116,3 @@ import { LogOut, Phone, User, Edit } from "lucide-react";
       </header>
     );
   }
-  
