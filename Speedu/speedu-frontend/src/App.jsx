@@ -26,6 +26,7 @@ import { useSpeeduApp } from "./hooks/useSpeeduApp.js";
           logout={app.logout}
           userName={app.userName}
           userInfo={app.userInfo}
+          goUpdateProfile={app.goUpdateProfile}
         />
         <Toast toasts={app.toasts} dismissToast={app.dismissToast} />
 
@@ -52,7 +53,15 @@ import { useSpeeduApp } from "./hooks/useSpeeduApp.js";
           <Otp mobile={app.mobile} otpHint={app.otpHint} loading={app.loading} verifyOtp={app.verifyOtp} />
         )}
         {app.view === "adminLogin" && <AdminLogin loading={app.loading} submitAdminLogin={app.submitAdminLogin} />}
-        {app.view === "profile" && <Profile role={app.role} loading={app.loading} submitProfile={app.submitProfile} />}
+        {app.view === "profile" && (
+          <Profile
+            role={app.role}
+            loading={app.loading}
+            submitProfile={app.submitProfile}
+            userInfo={app.userInfo}
+            isUpdate={app.isUpdateProfile}
+          />
+        )}
         {app.view === "address" && <Address addresses={app.addresses} loading={app.loading} addAddress={app.addAddress} />}
         {app.view === "service" && (
           <Service
