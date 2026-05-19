@@ -20,6 +20,7 @@ import { useEffect, useMemo, useState } from "react";
       try { return JSON.parse(localStorage.getItem("speedu_user_info") || "null") || null; }
       catch { return null; }
     });
+    const [isUpdateProfile, setIsUpdateProfile] = useState(false);
     const [addresses, setAddresses] = useState(() => {
       try {
         return JSON.parse(localStorage.getItem("speedu_addresses") || "[]");
@@ -51,7 +52,6 @@ import { useEffect, useMemo, useState } from "react";
     async function api(path, options = {}) {
       const headers = options.body instanceof FormData ? {} : { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
-
       const response = await fetch(`${API_BASE}${path}`, {
         ...options,
         headers: { ...headers, ...(options.headers || {}) },
@@ -64,7 +64,6 @@ import { useEffect, useMemo, useState } from "react";
     async function adminApi(path, options = {}, tokenOverride = adminToken) {
       const headers = options.body instanceof FormData ? {} : { "Content-Type": "application/json" };
       if (tokenOverride) headers.Authorization = `Bearer ${tokenOverride}`;
-
       const response = await fetch(`${API_BASE}${path}`, {
         ...options,
         headers: { ...headers, ...(options.headers || {}) },
@@ -95,7 +94,6 @@ import { useEffect, useMemo, useState } from "react";
       const nextRefresh = data.refreshToken || "";
       const nextRole = data.role || role;
       const nextUserId = data.userId || payload.userId || payload.id || "";
-
       setToken(nextToken);
       setRefreshToken(nextRefresh);
       setRole(nextRole);
@@ -111,8 +109,6 @@ import { useEffect, useMemo, useState } from "react";
       setProfileType(type || "");
       localStorage.setItem("speedu_profile_id", id || "");
       localStorage.setItem("speedu_profile_type", type || "");
-
-      // Save user name and info for navbar display
       if (profileData) {
         const name = profileData.fullName || "";
         setUserName(name);
@@ -153,6 +149,12 @@ import { useEffect, useMemo, useState } from "react";
       setView("home");
     }
 
+    // Opens profile form in update mode (from navbar dropdown)
+    function goUpdateProfile() {
+      setIsUpdateProfile(true);
+      setView("profile");
+    }
+
     async function loadServices() {
       try {
         const result = await api("/service/getService");
@@ -191,6 +193,8 @@ import { useEffect, useMemo, useState } from "react";
     async function go(nextView) {
       setMessage("");
       setError("");
+      // Reset update mode when navigating away from profile
+      if (nextView !== "profile") setIsUpdateProfile(false);
       setView(nextView);
       if (nextView === "admin" && !adminToken) {
         setView("adminLogin");
@@ -205,20 +209,14 @@ import { useEffect, useMemo, useState } from "react";
       event.preventDefault();
       const formElement = event.currentTarget;
       const categoryName = normalizeName(new FormData(formElement).get("categoryName"));
-      if (!categoryName) {
-        flash("Service name required hai.", "error");
-        return;
-      }
+      if (!categoryName) { flash("Service name required hai.", "error"); return; }
       if (services.some((service) => sameName(service.categoryName, categoryName))) {
         flash(`${categoryName} service already exists. Duplicate service add nahi hogi.`, "error");
         return;
       }
       try {
         setLoading(true);
-        await adminApi("/service/createService", {
-          method: "POST",
-          body: JSON.stringify({ categoryName }),
-        });
+        await adminApi("/service/createService", { method: "POST", body: JSON.stringify({ categoryName }) });
         formElement.reset();
         await loadServices();
         flash("Service created successfully.");
@@ -237,31 +235,18 @@ import { useEffect, useMemo, useState } from "react";
       const variantName = normalizeName(form.get("variantName"));
       const variantPrice = Number(form.get("variantPrice"));
       const service = services.find((item) => item._id === serviceId);
-      if (!serviceId || !service) {
-        flash("Pehle service select karo.", "error");
-        return;
-      }
-      if (!variantName) {
-        flash("Variant name required hai.", "error");
-        return;
-      }
+      if (!serviceId || !service) { flash("Pehle service select karo.", "error"); return; }
+      if (!variantName) { flash("Variant name required hai.", "error"); return; }
       if (!Number.isFinite(variantPrice) || variantPrice <= 0) {
-        flash("Variant price 0 se zyada hona chahiye.", "error");
-        return;
+        flash("Variant price 0 se zyada hona chahiye.", "error"); return;
       }
       if ((service.variants || []).some((variant) => sameName(variant.variantName, variantName))) {
-        flash(
-          `${variantName} variant ${service.categoryName} me already exists. Duplicate variant add nahi hoga.`,
-          "error",
-        );
+        flash(`${variantName} variant ${service.categoryName} me already exists. Duplicate variant add nahi hoga.`, "error");
         return;
       }
       try {
         setLoading(true);
-        await adminApi(`/service/${serviceId}/variant`, {
-          method: "POST",
-          body: JSON.stringify({ variantName, variantPrice }),
-        });
+        await adminApi(`/service/${serviceId}/variant`, { method: "POST", body: JSON.stringify({ variantName, variantPrice }) });
         formElement.reset();
         await loadServices();
         flash("Variant created successfully.");
@@ -274,21 +259,15 @@ import { useEffect, useMemo, useState } from "react";
 
     async function removeFromAdminApi(paths, successText, missingText) {
       const attempts = [];
-
       for (const path of paths) {
         try {
           const data = await adminApi(path, { method: "DELETE" });
-          if (data.success !== false) {
-            await loadServices();
-            flash(successText);
-            return;
-          }
+          if (data.success !== false) { await loadServices(); flash(successText); return; }
         } catch (err) {
           attempts.push(`${path}: ${err.message}`);
           if (!/not found|cannot|route|404|method/i.test(err.message)) throw err;
         }
       }
-
       throw new Error(`${missingText} Tried: ${attempts.join(", ")}`);
     }
 
@@ -299,12 +278,7 @@ import { useEffect, useMemo, useState } from "react";
       try {
         setLoading(true);
         await removeFromAdminApi(
-          [
-            `/service/deleteServiceById/${service._id}`,
-            `/service/${service._id}`,
-            `/service/deleteService/${service._id}`,
-            `/service/delete/${service._id}`,
-          ],
+          [`/service/deleteServiceById/${service._id}`, `/service/${service._id}`, `/service/deleteService/${service._id}`, `/service/delete/${service._id}`],
           `${serviceName} service removed.`,
           "Backend me service delete route nahi mila.",
         );
@@ -322,12 +296,7 @@ import { useEffect, useMemo, useState } from "react";
       try {
         setLoading(true);
         await removeFromAdminApi(
-          [
-            `/service/${service._id}/variant/${variant._id}`,
-            `/service/${service._id}/variant/delete/${variant._id}`,
-            `/service/variant/${variant._id}`,
-            `/service/deleteVariant/${variant._id}`,
-          ],
+          [`/service/${service._id}/variant/${variant._id}`, `/service/${service._id}/variant/delete/${variant._id}`, `/service/variant/${variant._id}`, `/service/deleteVariant/${variant._id}`],
           `${variantName} variant removed.`,
           "Backend me variant delete route nahi mila.",
         );
@@ -347,7 +316,6 @@ import { useEffect, useMemo, useState } from "react";
       setRole(nextRole);
       localStorage.setItem("speedu_mobile", nextMobile);
       localStorage.setItem("speedu_role", nextRole);
-
       try {
         setLoading(true);
         const result = await api(`/auth/${authMode}`, {
@@ -369,13 +337,9 @@ import { useEffect, useMemo, useState } from "react";
       const form = new FormData(event.currentTarget);
       const email = form.get("email").trim();
       const password = form.get("password");
-
       try {
         setLoading(true);
-        const result = await api("/admin/login", {
-          method: "POST",
-          body: JSON.stringify({ email, password }),
-        });
+        const result = await api("/admin/login", { method: "POST", body: JSON.stringify({ email, password }) });
         const data = result.data || {};
         setAdminToken(data.accessToken || "");
         setAdminEmail(data.email || email);
@@ -404,6 +368,7 @@ import { useEffect, useMemo, useState } from "react";
         saveSession(result.data || {});
         const completed = result.data?.isProfileCompleted && profileId && profileType === role;
         const nextView = completed ? (role === "agent" ? "agent" : "home") : "profile";
+        setIsUpdateProfile(false);
         setView(nextView);
         if (nextView === "home") await loadServices();
         if (nextView === "agent") await loadBookings();
@@ -418,23 +383,19 @@ import { useEffect, useMemo, useState } from "react";
     async function submitProfile(event) {
       event.preventDefault();
       if (!userId) {
-        flash(
-          "We could not connect your profile after login. Please make sure the backend returns user details after OTP verification.",
-          "error",
-        );
+        flash("We could not connect your profile after login. Please make sure the backend returns user details after OTP verification.", "error");
         return;
       }
-
       try {
         setLoading(true);
         const path = role === "agent" ? `/agent/agentProfile/${userId}` : `/customer/profile/${userId}`;
         const result = await api(path, { method: "POST", body: new FormData(event.currentTarget) });
-        // Pass profile data to saveProfile so name shows in navbar
         saveProfile(result.data?._id, role, result.data);
-        const nextView = role === "agent" ? "agent" : "home";
+        const nextView = isUpdateProfile ? (role === "agent" ? "agent" : "home") : (role === "agent" ? "agent" : "home");
+        setIsUpdateProfile(false);
         setView(nextView);
         if (nextView === "home") await loadServices();
-        flash("Profile saved successfully.");
+        flash(isUpdateProfile ? "Profile updated successfully." : "Profile saved successfully.");
       } catch (err) {
         flash(err.message, "error");
       } finally {
@@ -444,11 +405,7 @@ import { useEffect, useMemo, useState } from "react";
 
     async function addAddress(event) {
       event.preventDefault();
-      if (!profileId) {
-        flash("Please complete your profile first.", "error");
-        return;
-      }
-
+      if (!profileId) { flash("Please complete your profile first.", "error"); return; }
       const body = Object.fromEntries(new FormData(event.currentTarget).entries());
       const path = role === "agent" ? `/agent/agentAddresses/${profileId}` : `/customer/addresses/${profileId}`;
       try {
@@ -481,51 +438,21 @@ import { useEffect, useMemo, useState } from "react";
 
     async function createBooking(event) {
       event.preventDefault();
-      if (!selectedVariant) {
-        flash("Please select a service variant first.", "error");
-        return;
-      }
-
+      if (!selectedVariant) { flash("Please select a service variant first.", "error"); return; }
       const form = new FormData(event.currentTarget);
       let addressId = form.get("savedAddressId");
-
       if (!addressId) {
-        const addressBody = {
-          line1: form.get("line1"),
-          line2: form.get("line2"),
-          city: form.get("city"),
-          state: form.get("state"),
-          pincode: form.get("pincode"),
-        };
-
+        const addressBody = { line1: form.get("line1"), line2: form.get("line2"), city: form.get("city"), state: form.get("state"), pincode: form.get("pincode") };
         if (!addressBody.line1 || !addressBody.city || !addressBody.state || !addressBody.pincode) {
-          flash("Please select a saved address or enter a new address.", "error");
-          return;
+          flash("Please select a saved address or enter a new address.", "error"); return;
         }
-
-        const addressResult = await api(`/customer/addresses/${profileId}`, {
-          method: "POST",
-          body: JSON.stringify(addressBody),
-        });
+        const addressResult = await api(`/customer/addresses/${profileId}`, { method: "POST", body: JSON.stringify(addressBody) });
         const nextAddresses = addressResult.data || [];
         saveAddresses(nextAddresses);
         addressId = nextAddresses.at(-1)?._id;
       }
-
-      if (!addressId) {
-        flash("We could not save your address. Please try again.", "error");
-        return;
-      }
-
-      const body = {
-        customerId: profileId,
-        serviceId: selectedService._id,
-        variantId: selectedVariant._id,
-        bookingDate: form.get("bookingDate"),
-        bookingTime: form.get("bookingTime"),
-        addressId,
-      };
-
+      if (!addressId) { flash("We could not save your address. Please try again.", "error"); return; }
+      const body = { customerId: profileId, serviceId: selectedService._id, variantId: selectedVariant._id, bookingDate: form.get("bookingDate"), bookingTime: form.get("bookingTime"), addressId };
       try {
         setLoading(true);
         const result = await api("/booking/create", { method: "POST", body: JSON.stringify(body) });
@@ -545,11 +472,7 @@ import { useEffect, useMemo, useState } from "react";
         setLoading(true);
         const result = await api("/payment/create", {
           method: "POST",
-          body: JSON.stringify({
-            bookingId: draftBooking._id,
-            customerId: profileId,
-            paymentMethod: new FormData(event.currentTarget).get("paymentMethod"),
-          }),
+          body: JSON.stringify({ bookingId: draftBooking._id, customerId: profileId, paymentMethod: new FormData(event.currentTarget).get("paymentMethod") }),
         });
         setPaymentResult(result.data);
         setView("paymentSuccess");
@@ -580,60 +503,17 @@ import { useEffect, useMemo, useState } from "react";
     }, []);
 
     return {
-      view,
-      setView,
-      authMode,
-      setAuthMode,
-      role,
-      mobile,
-      token,
-      refreshToken,
-      adminToken,
-      adminEmail,
-      userId,
-      profileId,
-      profileType,
-      userName,
-      userInfo,
-      addresses,
-      services,
-      filteredServices,
-      selectedService,
-      selectedVariant,
-      setSelectedVariant,
-      bookings,
-      agentBookings,
-      adminBookings,
-      payments,
-      draftBooking,
-      paymentResult,
-      otpHint,
-      search,
-      setSearch,
-      message,
-      error,
-      toasts,
-      loading,
-      go,
-      logout,
-      logoutAdmin,
-      dismissToast,
-      loadServices,
-      loadBookings,
-      loadAdminData,
-      createService,
-      createVariant,
-      removeService,
-      removeVariant,
-      submitAuth,
-      submitAdminLogin,
-      verifyOtp,
-      submitProfile,
-      addAddress,
-      openService,
-      createBooking,
-      createPayment,
-      updateBooking,
+      view, setView, authMode, setAuthMode, role, mobile, token, refreshToken,
+      adminToken, adminEmail, userId, profileId, profileType,
+      userName, userInfo, isUpdateProfile,
+      addresses, services, filteredServices, selectedService, selectedVariant, setSelectedVariant,
+      bookings, agentBookings, adminBookings, payments, draftBooking, paymentResult,
+      otpHint, search, setSearch, message, error, toasts, loading,
+      go, logout, logoutAdmin, goUpdateProfile, dismissToast,
+      loadServices, loadBookings, loadAdminData,
+      createService, createVariant, removeService, removeVariant,
+      submitAuth, submitAdminLogin, verifyOtp, submitProfile,
+      addAddress, openService, createBooking, createPayment, updateBooking,
     };
   }
   
