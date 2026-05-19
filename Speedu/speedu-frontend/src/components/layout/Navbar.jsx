@@ -1,8 +1,8 @@
-import { LogOut, Phone, Sparkles, ChevronDown, User } from "lucide-react";
+import { LogOut, Phone, Sparkles, User, Edit } from "lucide-react";
   import { useState } from "react";
   import { Button } from "../ui/Button.jsx";
 
-  export function Navbar({ token, role, go, logout, userName, userInfo }) {
+  export function Navbar({ token, role, go, logout, userName, userInfo, goUpdateProfile }) {
     const [dropdownOpen, setDropdownOpen] = useState(false);
 
     return (
@@ -23,46 +23,35 @@ import { LogOut, Phone, Sparkles, ChevronDown, User } from "lucide-react";
           </button>
 
           <nav className="flex flex-wrap items-center gap-2">
-            <Button variant="nav" onClick={() => go("home")}>
-              Services
-            </Button>
-            <Button variant="nav" onClick={() => go("admin")}>
-              Admin
-            </Button>
+            <Button variant="nav" onClick={() => go("home")}>Services</Button>
+            <Button variant="nav" onClick={() => go("admin")}>Admin</Button>
             {token && role === "customer" && (
-              <Button variant="nav" onClick={() => go("bookings")}>
-                My bookings
-              </Button>
+              <Button variant="nav" onClick={() => go("bookings")}>My bookings</Button>
             )}
             {token && role === "agent" && (
-              <Button variant="nav" onClick={() => go("agent")}>
-                Dashboard
-              </Button>
+              <Button variant="nav" onClick={() => go("agent")}>Dashboard</Button>
             )}
             {token && (
-              <Button variant="nav" onClick={() => go("address")}>
-                Address
-              </Button>
+              <Button variant="nav" onClick={() => go("address")}>Address</Button>
             )}
 
             {token ? (
               <div className="relative ml-1">
+                {/* Only first letter circle - no name text */}
                 <button
                   type="button"
                   onClick={() => setDropdownOpen((prev) => !prev)}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-all"
+                  className="grid h-10 w-10 place-items-center rounded-full bg-emerald-600 text-white text-sm font-bold shadow-md hover:bg-emerald-700 transition-all"
+                  title={userName || "Profile"}
                 >
-                  <span className="grid h-7 w-7 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
-                    {userName ? userName.charAt(0).toUpperCase() : <User className="h-4 w-4" />}
-                  </span>
-                  <span>{userName || "Profile"}</span>
-                  <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+                  {userName ? userName.charAt(0).toUpperCase() : <User className="h-5 w-5" />}
                 </button>
 
                 {dropdownOpen && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(false)} />
                     <div className="absolute right-0 z-20 mt-2 w-64 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
+                      {/* User info header */}
                       <div className="mb-3 flex items-center gap-3 border-b border-slate-100 pb-3">
                         <span className="grid h-10 w-10 place-items-center rounded-full bg-emerald-100 text-emerald-700 text-sm font-bold">
                           {userName ? userName.charAt(0).toUpperCase() : <User className="h-5 w-5" />}
@@ -73,6 +62,7 @@ import { LogOut, Phone, Sparkles, ChevronDown, User } from "lucide-react";
                         </div>
                       </div>
 
+                      {/* User details */}
                       {userInfo?.mobile && (
                         <div className="mb-1 flex justify-between text-sm">
                           <span className="text-slate-500">Mobile</span>
@@ -92,12 +82,23 @@ import { LogOut, Phone, Sparkles, ChevronDown, User } from "lucide-react";
                         </div>
                       )}
                       {userInfo?.dob && (
-                        <div className="mb-3 flex justify-between text-sm">
+                        <div className="mb-1 flex justify-between text-sm">
                           <span className="text-slate-500">Date of Birth</span>
                           <span className="font-medium text-slate-700">{userInfo.dob}</span>
                         </div>
                       )}
 
+                      {/* Update Profile button */}
+                      <button
+                        type="button"
+                        onClick={() => { setDropdownOpen(false); goUpdateProfile(); }}
+                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition-all"
+                      >
+                        <Edit className="h-4 w-4" />
+                        Update Profile
+                      </button>
+
+                      {/* Logout button */}
                       <button
                         type="button"
                         onClick={() => { setDropdownOpen(false); logout(); }}
