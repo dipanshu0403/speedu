@@ -18,7 +18,7 @@ import { useSpeeduApp } from "./hooks/useSpeeduApp.js";
     const app = useSpeeduApp();
 
     return (
-      <div className="min-h-screen bg-stone-50 text-slate-800 antialiased">
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50/80 text-slate-900 antialiased">
         <Navbar
           token={app.token}
           role={app.role}
