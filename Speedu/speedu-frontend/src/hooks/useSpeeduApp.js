@@ -385,7 +385,7 @@ import { useEffect, useMemo, useState } from "react";
     useEffect(() => { loadServices(); }, []);
 
     return {
-      view, setView, authMode, setAuthMode, role, mobile, token, refreshToken,
+      view, setView, authMode, setAuthMode, role, setRole, mobile, token, refreshToken,
       adminToken, adminEmail, userId, profileId, profileType,
       userName, userInfo, isUpdateProfile,
       addresses, services, filteredServices, selectedService, selectedVariant, setSelectedVariant,
