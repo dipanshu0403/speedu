@@ -1,5 +1,6 @@
 const { model } = require("mongoose");
 const agentModel = require("../../models/agent.model");
+const UserModel = require("../../models/user.model");
 const logger = require("../../utils/logger");
 const serviceModel = require("../../models/service.model");
 const { messaging } = require("firebase-admin");
@@ -8,18 +9,30 @@ exports.agentProfile = async (req, res, next) => {
   try {
     const userId = req.params.id;
     const { fullName, email, gender, dob } = req.body;
-    let profileLink = null;
+    const updateData = { userId };
+    if (fullName) updateData.fullName = fullName;
+    if (email) updateData.email = email;
+    if (gender) updateData.gender = gender;
+    if (dob) updateData.dob = dob;
     if (req.file) {
-      profileLink = `/uploads/${req.file.filename}`;
+      updateData.profileLink = `/uploads/${req.file.filename}`;
     }
-    const userProfile = await agentModel.create({ userId, fullName, email, gender, dob, profileLink });
+
+    const userProfile = await agentModel.findOneAndUpdate(
+      { userId },
+      { $set: updateData },
+      { new: true, upsert: true }
+    );
 
     if (!userProfile) {
       return res.status(500).json({ success: false, message: "failed to create agent profile" });
     }
+
+    await UserModel.findByIdAndUpdate(userId, { isProfileCompleted: true });
+
     return res
       .status(200)
-      .json({ success: true, message: "agent profile created successfully", data: userProfile });
+      .json({ success: true, message: "agent profile saved successfully", data: userProfile });
   } catch (error) {
     logger.error("Error", error);
     return res.status(500).json({ success: false, message: "internal server error" });

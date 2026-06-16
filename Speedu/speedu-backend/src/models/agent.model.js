@@ -75,6 +75,18 @@ const agentSchema = new mongoose.Schema(
         isAvailable: {
             type: Boolean,
             default: true
+        },
+        walletBalance: {
+            type: Number,
+            default: 0
+        },
+        totalEarnings: {
+            type: Number,
+            default: 0
+        },
+        totalCompletedServices: {
+            type: Number,
+            default: 0
         }
     },
     {

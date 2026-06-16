@@ -23,6 +23,7 @@ import { useSpeeduApp } from "./hooks/useSpeeduApp.js";
           token={app.token}
           role={app.role}
           go={app.go}
+          goServices={app.goServices}
           logout={app.logout}
           userName={app.userName}
           userInfo={app.userInfo}

@@ -1,4 +1,6 @@
 const { generateAccessToken, generateRefreshToken } = require("../middleware/auth.middleware");
+const AgentModel = require("../models/agent.model");
+const CustomerModel = require("../models/customer.model");
 const UserModel = require("../models/user.model");
 const { generateOtp } = require("../utils/common.utils");
 const logger = require("../utils/logger");  
@@ -233,6 +235,14 @@ exports.verifyOtp = async (req, res) => {
       { accessToken, refreshToken, ipAddress: payload.ipAddress, otp: null }
     );
 
+    const profile =
+      user.role === "agent"
+        ? await AgentModel.findOne({ userId: user._id })
+        : await CustomerModel.findOne({ userId: user._id });
+    const profileData = profile
+      ? { ...profile.toObject(), mobile: user.mobile, role: user.role }
+      : null;
+
     logger.info(`OTP verified successfully for user: ${user._id}`);
 
     return res.status(200).json({
@@ -240,6 +250,9 @@ exports.verifyOtp = async (req, res) => {
       message: "OTP verified successfully",
       data: {
         isProfileCompleted: user.isProfileCompleted,
+        profileId: profile?._id || "",
+        profile: profileData,
+        userId: user._id,
         role: user.role,
         accessToken,
         refreshToken,

@@ -2,7 +2,7 @@ import { LogOut, Phone, User, Edit } from "lucide-react";
   import { useState } from "react";
   import { Button } from "../ui/Button.jsx";
 
-  export function Navbar({ token, role, go, logout, userName, userInfo, goUpdateProfile }) {
+  export function Navbar({ token, role, go, goServices, logout, userName, userInfo, goUpdateProfile }) {
     const [dropdownOpen, setDropdownOpen] = useState(false);
 
     return (
@@ -22,8 +22,7 @@ import { LogOut, Phone, User, Edit } from "lucide-react";
           </button>
 
           <nav className="flex flex-wrap items-center gap-2">
-            <Button variant="nav" onClick={() => go("home")}>Services</Button>
-            <Button variant="nav" onClick={() => go("admin")}>Admin</Button>
+            <Button variant="nav" onClick={goServices}>Services</Button>
             {token && role === "customer" && (
               <Button variant="nav" onClick={() => go("bookings")}>My bookings</Button>
             )}

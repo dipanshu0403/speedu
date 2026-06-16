@@ -81,6 +81,16 @@ const bookingSchema = new mongoose.Schema(
     completedAt: {
       type: Date,
     },
+
+    earningBreakdown: {
+      grossAmount: { type: Number, default: 0 },
+      gstRate: { type: Number, default: 0 },
+      gstAmount: { type: Number, default: 0 },
+      platformFeeRate: { type: Number, default: 0 },
+      platformFee: { type: Number, default: 0 },
+      agentIncome: { type: Number, default: 0 },
+      settledAt: { type: Date },
+    },
   },
   {
     timestamps: true,

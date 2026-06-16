@@ -88,15 +88,21 @@ import { useEffect, useMemo, useState } from "react";
     }
 
     function saveProfile(id, type, profileData) {
-      setProfileId(id || ""); setProfileType(type || "");
-      localStorage.setItem("speedu_profile_id", id || "");
-      localStorage.setItem("speedu_profile_type", type || "");
-      if (profileData) {
-        const name = profileData.fullName || "";
-        setUserName(name); setUserInfo(profileData);
-        localStorage.setItem("speedu_user_name", name);
-        localStorage.setItem("speedu_user_info", JSON.stringify(profileData));
-      }
+      const cleanId = id || "";
+      const cleanType = cleanId ? type || "" : "";
+      const cleanProfile = cleanId && profileData ? profileData : null;
+      const name = cleanProfile?.fullName || "";
+
+      setProfileId(cleanId);
+      setProfileType(cleanType);
+      setUserName(name);
+      setUserInfo(cleanProfile);
+
+      localStorage.setItem("speedu_profile_id", cleanId);
+      localStorage.setItem("speedu_profile_type", cleanType);
+      localStorage.setItem("speedu_user_name", name);
+      if (cleanProfile) localStorage.setItem("speedu_user_info", JSON.stringify(cleanProfile));
+      else localStorage.removeItem("speedu_user_info");
     }
 
     function saveAddresses(nextAddresses) {
@@ -126,12 +132,12 @@ import { useEffect, useMemo, useState } from "react";
       catch (err) { flash(err.message, "error"); }
     }
 
-    async function loadBookings() {
-      if (!profileId) return;
+    async function loadBookings(nextRole = role, nextProfileId = profileId) {
+      if (!nextProfileId) return;
       try {
-        const path = role === "agent" ? `/booking/agent/${profileId}` : `/booking/customer/${profileId}`;
+        const path = nextRole === "agent" ? `/booking/agent/${nextProfileId}` : `/booking/customer/${nextProfileId}`;
         const result = await api(path);
-        if (role === "agent") setAgentBookings(result.data || []);
+        if (nextRole === "agent") setAgentBookings(result.data || []);
         else setBookings(result.data || []);
       } catch (err) { flash(err.message, "error"); }
     }
@@ -156,6 +162,13 @@ import { useEffect, useMemo, useState } from "react";
       if (nextView === "home") await loadServices();
       if (nextView === "bookings" || nextView === "agent") await loadBookings();
       if (nextView === "admin") await loadAdminData();
+    }
+
+    async function goServices() {
+      await go("home");
+      window.setTimeout(() => {
+        document.getElementById("services")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
     }
 
     async function createService(event) {
@@ -272,16 +285,20 @@ import { useEffect, useMemo, useState } from "react";
       try {
         setLoading(true);
         const result = await api("/auth/verify-otp", { method: "POST", body: JSON.stringify({ mobile, role, otp }) });
-        saveSession(result.data || {});
+        const data = result.data || {};
+        const nextRole = data.role || role;
+        const nextProfileId = data.profileId || "";
 
-        // FIX: Only check isProfileCompleted from backend - no profileId check
-        // This ensures profile form shows only ONCE (first login), never again
-        const isCompleted = result.data?.isProfileCompleted === true;
-        const nextView = isCompleted ? (role === "agent" ? "agent" : "home") : "profile";
+        saveSession(data);
+        saveProfile(nextProfileId, nextRole, data.profile);
+        saveAddresses(data.profile?.address || []);
+
+        const isCompleted = data.isProfileCompleted === true && Boolean(nextProfileId);
+        const nextView = isCompleted ? (nextRole === "agent" ? "agent" : "home") : "profile";
         setIsUpdateProfile(false);
         setView(nextView);
         if (nextView === "home") await loadServices();
-        if (nextView === "agent") await loadBookings();
+        if (nextView === "agent") await loadBookings(nextRole, nextProfileId);
         flash("Login successful.");
       } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
@@ -300,6 +317,7 @@ import { useEffect, useMemo, useState } from "react";
         const nextView = role === "agent" ? "agent" : "home";
         setView(nextView);
         if (nextView === "home") await loadServices();
+        if (nextView === "agent") await loadBookings(role, result.data?._id);
         flash(isUpdateProfile ? "Profile updated successfully." : "Profile saved successfully.");
       } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
@@ -373,7 +391,7 @@ import { useEffect, useMemo, useState } from "react";
       addresses, services, filteredServices, selectedService, selectedVariant, setSelectedVariant,
       bookings, agentBookings, adminBookings, payments, draftBooking, paymentResult,
       otpHint, search, setSearch, message, error, toasts, loading,
-      go, logout, logoutAdmin, goUpdateProfile, dismissToast,
+      go, goServices, logout, logoutAdmin, goUpdateProfile, dismissToast,
       loadServices, loadBookings, loadAdminData,
       createService, createVariant, removeService, removeVariant,
       submitAuth, submitAdminLogin, verifyOtp, submitProfile,

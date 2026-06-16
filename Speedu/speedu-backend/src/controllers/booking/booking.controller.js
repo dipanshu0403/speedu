@@ -4,6 +4,30 @@ const agentModel = require("../../models/agent.model");
 const serviceModel = require("../../models/service.model");
 const logger = require("../../utils/logger");
 
+const GST_RATE = 18;
+const PLATFORM_FEE_RATE = 10;
+
+function roundMoney(value) {
+  return Math.round(Number(value || 0) * 100) / 100;
+}
+
+function calculateAgentEarning(price) {
+  const grossAmount = roundMoney(price);
+  const gstAmount = roundMoney((grossAmount * GST_RATE) / 100);
+  const platformFee = roundMoney((grossAmount * PLATFORM_FEE_RATE) / 100);
+  const agentIncome = roundMoney(Math.max(grossAmount - gstAmount - platformFee, 0));
+
+  return {
+    grossAmount,
+    gstRate: GST_RATE,
+    gstAmount,
+    platformFeeRate: PLATFORM_FEE_RATE,
+    platformFee,
+    agentIncome,
+    settledAt: new Date(),
+  };
+}
+
 exports.createBooking = async (req, res) => {
   try {
     logger.info("createBooking api called");
@@ -53,13 +77,9 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    const availableAgent = await agentModel.findOne({
-      isAvailable: true,
-    });
-
     const booking = await bookingModel.create({
       customerId,
-      agentId: availableAgent ? availableAgent._id : null,
+      agentId: null,
       serviceId,
       variantId,
       serviceName: service.categoryName,
@@ -68,13 +88,8 @@ exports.createBooking = async (req, res) => {
       bookingTime,
       address: customerAddress,
       price: variant.variantPrice,
-      status: availableAgent ? "ACCEPTED" : "PENDING",
+      status: "PENDING",
     });
-
-    if (availableAgent) {
-      availableAgent.isAvailable = false;
-      await availableAgent.save();
-    }
 
     return res.status(201).json({
       success: true,
@@ -183,7 +198,12 @@ exports.getAgentBookings = async (req, res) => {
     const { agentId } = req.params;
 
     const bookings = await bookingModel
-      .find({ agentId })
+      .find({
+        $or: [
+          { agentId },
+          { agentId: null, status: "PENDING" },
+        ],
+      })
       .populate("customerId")
       .populate("serviceId");
 
@@ -215,6 +235,20 @@ exports.acceptBooking = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "booking not found",
+      });
+    }
+
+    if (booking.agentId && String(booking.agentId) !== String(agentId)) {
+      return res.status(409).json({
+        success: false,
+        message: "booking already accepted by another agent",
+      });
+    }
+
+    if (booking.status !== "PENDING") {
+      return res.status(400).json({
+        success: false,
+        message: `booking cannot be accepted from ${booking.status} status`,
       });
     }
 
@@ -325,15 +359,41 @@ exports.completeBooking = async (req, res) => {
       });
     }
 
+    if (!booking.agentId) {
+      return res.status(400).json({
+        success: false,
+        message: "booking must be accepted by an agent before completion",
+      });
+    }
+
+    if (!["ACCEPTED", "ONGOING", "COMPLETED"].includes(booking.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `booking cannot be completed from ${booking.status} status`,
+      });
+    }
+
+    const alreadySettled = Boolean(booking.earningBreakdown?.settledAt);
+    if (!alreadySettled) {
+      booking.earningBreakdown = calculateAgentEarning(booking.price);
+    }
+
     booking.status = "COMPLETED";
-    booking.completedAt = new Date();
+    booking.completedAt = booking.completedAt || new Date();
 
     await booking.save();
 
     if (booking.agentId) {
-      await agentModel.findByIdAndUpdate(booking.agentId, {
-        isAvailable: true,
-      });
+      const agentUpdate = { $set: { isAvailable: true } };
+      if (!alreadySettled) {
+        agentUpdate.$inc = {
+          walletBalance: booking.earningBreakdown.agentIncome,
+          totalEarnings: booking.earningBreakdown.agentIncome,
+          totalCompletedServices: 1,
+        };
+      }
+
+      await agentModel.findByIdAndUpdate(booking.agentId, agentUpdate);
     }
 
     return res.status(200).json({
