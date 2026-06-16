@@ -34,7 +34,7 @@ import { useSpeeduApp } from "./hooks/useSpeeduApp.js";
         {app.view === "auth" && (<Auth authMode={app.authMode} setAuthMode={app.setAuthMode} role={app.role} setRole={app.setRole} mobile={app.mobile} loading={app.loading} submitAuth={app.submitAuth} submitAdminLogin={app.submitAdminLogin} />)}
         {app.view === "otp" && (<Otp mobile={app.mobile} otpHint={app.otpHint} loading={app.loading} verifyOtp={app.verifyOtp} />)}
         {app.view === "adminLogin" && <AdminLogin loading={app.loading} submitAdminLogin={app.submitAdminLogin} />}
-        {app.view === "profile" && (<Profile role={app.role} loading={app.loading} submitProfile={app.submitProfile} userInfo={app.userInfo} isUpdate={app.isUpdateProfile} />)}
+        {app.view === "profile" && (<Profile role={app.role} loading={app.loading} submitProfile={app.submitProfile} userInfo={app.userInfo} isUpdate={app.isUpdateProfile} services={app.services} />)}
         {app.view === "address" && <Address addresses={app.addresses} loading={app.loading} addAddress={app.addAddress} />}
         {app.view === "service" && (<Service service={app.selectedService} selectedVariant={app.selectedVariant} setSelectedVariant={app.setSelectedVariant} addresses={app.addresses} token={app.token} role={app.role} go={app.go} createBooking={app.createBooking} />)}
         {app.view === "payment" && (<Payment booking={app.draftBooking} loading={app.loading} createPayment={app.createPayment} />)}

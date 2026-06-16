@@ -38,6 +38,10 @@ const agentSchema = new mongoose.Schema(
         skills: [{
             type: String
         }],
+        services: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "service"
+        }],
         experience: {
             type: Number,
             default: 0

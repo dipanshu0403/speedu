@@ -28,6 +28,10 @@ function calculateAgentEarning(price) {
   };
 }
 
+function serviceIdsForAgent(agent) {
+  return (agent?.services || []).map((serviceId) => String(serviceId));
+}
+
 exports.createBooking = async (req, res) => {
   try {
     logger.info("createBooking api called");
@@ -196,12 +200,25 @@ exports.getAgentBookings = async (req, res) => {
     logger.info("getAgentBookings api called");
 
     const { agentId } = req.params;
+    const agent = await agentModel.findById(agentId);
+
+    if (!agent) {
+      return res.status(404).json({
+        success: false,
+        message: "agent not found",
+      });
+    }
+
+    const serviceIds = serviceIdsForAgent(agent);
+    const pendingBookingsForAgent = serviceIds.length
+      ? { agentId: null, status: "PENDING", serviceId: { $in: serviceIds } }
+      : { _id: null };
 
     const bookings = await bookingModel
       .find({
         $or: [
           { agentId },
-          { agentId: null, status: "PENDING" },
+          pendingBookingsForAgent,
         ],
       })
       .populate("customerId")
@@ -230,11 +247,26 @@ exports.acceptBooking = async (req, res) => {
     const { agentId } = req.body;
 
     const booking = await bookingModel.findById(bookingId);
+    const agent = await agentModel.findById(agentId);
 
     if (!booking) {
       return res.status(404).json({
         success: false,
         message: "booking not found",
+      });
+    }
+
+    if (!agent) {
+      return res.status(404).json({
+        success: false,
+        message: "agent not found",
+      });
+    }
+
+    if (!serviceIdsForAgent(agent).includes(String(booking.serviceId))) {
+      return res.status(403).json({
+        success: false,
+        message: "This service is not available in your agent profile.",
       });
     }
 

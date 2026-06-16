@@ -159,7 +159,7 @@ import { useEffect, useMemo, useState } from "react";
       if (nextView !== "profile") setIsUpdateProfile(false);
       setView(nextView);
       if (nextView === "admin" && !adminToken) { setView("adminLogin"); return; }
-      if (nextView === "home") await loadServices();
+      if (nextView === "home" || nextView === "profile") await loadServices();
       if (nextView === "bookings" || nextView === "agent") await loadBookings();
       if (nextView === "admin") await loadAdminData();
     }
@@ -297,7 +297,7 @@ import { useEffect, useMemo, useState } from "react";
         const nextView = isCompleted ? (nextRole === "agent" ? "agent" : "home") : "profile";
         setIsUpdateProfile(false);
         setView(nextView);
-        if (nextView === "home") await loadServices();
+        if (nextView === "home" || nextView === "profile") await loadServices();
         if (nextView === "agent") await loadBookings(nextRole, nextProfileId);
         flash("Login successful.");
       } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
@@ -308,10 +308,14 @@ import { useEffect, useMemo, useState } from "react";
       if (!userId) {
         flash("Session expired. Please login again.", "error"); return;
       }
+      const formData = new FormData(event.currentTarget);
+      if (role === "agent" && formData.getAll("services").length === 0) {
+        flash("Agent profile ke liye at least one service select karo.", "error"); return;
+      }
       try {
         setLoading(true);
         const path = role === "agent" ? `/agent/agentProfile/${userId}` : `/customer/profile/${userId}`;
-        const result = await api(path, { method: "POST", body: new FormData(event.currentTarget) });
+        const result = await api(path, { method: "POST", body: formData });
         saveProfile(result.data?._id, role, result.data);
         setIsUpdateProfile(false);
         const nextView = role === "agent" ? "agent" : "home";

@@ -1,19 +1,53 @@
-const { model } = require("mongoose");
+const mongoose = require("mongoose");
 const agentModel = require("../../models/agent.model");
 const UserModel = require("../../models/user.model");
 const logger = require("../../utils/logger");
 const serviceModel = require("../../models/service.model");
 const { messaging } = require("firebase-admin");
 
+function readSelectedServices(body) {
+  const raw = body.services || body.serviceIds || body.selectedServices || [];
+  const values = Array.isArray(raw) ? raw : [raw];
+  return values
+    .flatMap((value) => String(value || "").split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+async function validateSelectedServices(serviceIds) {
+  const uniqueIds = [...new Set(serviceIds)];
+  if (!uniqueIds.length) {
+    return { error: "Please select at least one service." };
+  }
+
+  const invalidId = uniqueIds.find((id) => !mongoose.Types.ObjectId.isValid(id));
+  if (invalidId) {
+    return { error: "Invalid service selected." };
+  }
+
+  const count = await serviceModel.countDocuments({ _id: { $in: uniqueIds } });
+  if (count !== uniqueIds.length) {
+    return { error: "Selected service not found." };
+  }
+
+  return { serviceIds: uniqueIds };
+}
+
 exports.agentProfile = async (req, res, next) => {
   try {
     const userId = req.params.id;
     const { fullName, email, gender, dob } = req.body;
+    const selectedServices = await validateSelectedServices(readSelectedServices(req.body));
+    if (selectedServices.error) {
+      return res.status(400).json({ success: false, message: selectedServices.error });
+    }
+
     const updateData = { userId };
     if (fullName) updateData.fullName = fullName;
     if (email) updateData.email = email;
     if (gender) updateData.gender = gender;
     if (dob) updateData.dob = dob;
+    updateData.services = selectedServices.serviceIds;
     if (req.file) {
       updateData.profileLink = `/uploads/${req.file.filename}`;
     }
@@ -53,6 +87,14 @@ exports.updateAgentProfile = async (req, res, next) => {
     if (req.body.email) agent.email = req.body.email;
     if (req.body.dob) agent.dob = req.body.dob;
     if (req.body.gender) agent.gender = req.body.gender;
+    const serviceFieldsPresent = req.body.services || req.body.serviceIds || req.body.selectedServices;
+    if (serviceFieldsPresent) {
+      const selectedServices = await validateSelectedServices(readSelectedServices(req.body));
+      if (selectedServices.error) {
+        return res.status(400).json({ success: false, message: selectedServices.error });
+      }
+      agent.services = selectedServices.serviceIds;
+    }
 
 
      if (req.file) {
