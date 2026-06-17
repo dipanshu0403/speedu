@@ -51,6 +51,9 @@ const userSchema = new mongoose.Schema(
             type: String,
 
         },
+        otpExpiresAt: {
+            type: Date,
+        },
         isProfileCompleted: {
             type: Boolean,
             default: false 

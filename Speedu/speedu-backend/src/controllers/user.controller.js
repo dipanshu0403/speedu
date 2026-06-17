@@ -2,8 +2,25 @@ const { generateAccessToken, generateRefreshToken } = require("../middleware/aut
 const AgentModel = require("../models/agent.model");
 const CustomerModel = require("../models/customer.model");
 const UserModel = require("../models/user.model");
-const { generateOtp } = require("../utils/common.utils");
+const { generateOtp, normalizeIndianMobile } = require("../utils/common.utils");
 const logger = require("../utils/logger");  
+
+const OTP_EXPIRY_MINUTES = 5;
+
+function createOtpPayload(otp) {
+  return {
+    otp,
+    otpExpiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
+  };
+}
+
+function otpResponseData(user, otp) {
+  return {
+    mobile: user.mobile,
+    role: user.role,
+    otp,
+  };
+}
 
 /*
 Signup API - Only mobile and role required
@@ -29,15 +46,15 @@ exports.signup = async (req, res) => {
       });
     }
 
-    // Validate mobile format (10 digits)
-    if (!/^[6789]\d{9}$/.test(mobile)) {
+    const normalizedMobile = normalizeIndianMobile(mobile);
+    if (!normalizedMobile) {
       return res.status(400).json({
         success: false,
-        message: "Invalid mobile number format",
+        message: "Please enter a valid Indian mobile number",
       });
     }
 
-    const formattedMobile = `+91${mobile}`;
+    const formattedMobile = normalizedMobile.e164;
     const isExist = await UserModel.findOne({ mobile: formattedMobile });
 
     if (isExist) {
@@ -47,8 +64,7 @@ exports.signup = async (req, res) => {
       });
     }
 
-    // Generate OTP
-    const otp = generateOtp(6);
+    const { otp } = createOtpPayload(generateOtp(6));
 
     // Create new user with OTP
     const user = await UserModel.create({
@@ -58,16 +74,12 @@ exports.signup = async (req, res) => {
       isProfileCompleted: false,
     });
 
-    logger.info(`New user created: ${user._id} with mobile: ${formattedMobile}, OTP: ${otp}`);
+    logger.info(`New user created: ${user._id} with mobile: ${formattedMobile}`);
 
     return res.status(201).json({
       success: true,
       message: "OTP sent successfully. Please verify to continue.",
-      data: {
-        mobile: user.mobile,
-        role: user.role,
-        otp: otp, // Return OTP in response for development
-      },
+      data: otpResponseData(user, otp),
     });
   } catch (error) {
     logger.error(`[Error] while sign-up: ${error.message}`);
@@ -103,15 +115,15 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Validate mobile format
-    if (!/^[6789]\d{9}$/.test(mobile)) {
+    const normalizedMobile = normalizeIndianMobile(mobile);
+    if (!normalizedMobile) {
       return res.status(400).json({
         success: false,
-        message: "Invalid mobile number format",
+        message: "Please enter a valid Indian mobile number",
       });
     }
 
-    const formattedMobile = `+91${mobile}`;
+    const formattedMobile = normalizedMobile.e164;
     const user = await UserModel.findOne({ mobile: formattedMobile });
 
     if (!user) {
@@ -129,20 +141,15 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Generate new OTP
-    const otp = generateOtp(6);
+    const { otp } = createOtpPayload(generateOtp(6));
     await UserModel.updateOne({ mobile: formattedMobile }, { otp });
 
-    logger.info(`User login attempt: ${user._id} with mobile: ${formattedMobile}, OTP: ${otp}`);
+    logger.info(`User login OTP sent: ${user._id} with mobile: ${formattedMobile}`);
 
     return res.status(200).json({
       success: true,
       message: "OTP sent successfully. Please verify to continue.",
-      data: {
-        mobile: user.mobile,
-        role: user.role,
-        otp: otp, // Return OTP in response for development
-      },
+      data: otpResponseData(user, otp),
     });
   } catch (error) {
     logger.error(`[Error] while login: ${error.message}`);
@@ -176,7 +183,15 @@ exports.verifyOtp = async (req, res) => {
       });
     }
 
-    const formattedMobile = `+91${mobile}`;
+    const normalizedMobile = normalizeIndianMobile(mobile);
+    if (!normalizedMobile) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid Indian mobile number",
+      });
+    }
+
+    const formattedMobile = normalizedMobile.e164;
     const user = await UserModel.findOne({ mobile: formattedMobile });
 
     if (!user) {
@@ -232,7 +247,7 @@ exports.verifyOtp = async (req, res) => {
     // Clear OTP after successful verification
     await UserModel.updateOne(
       { _id: user._id },
-      { accessToken, refreshToken, ipAddress: payload.ipAddress, otp: null }
+      { accessToken, refreshToken, ipAddress: payload.ipAddress, otp: null, otpExpiresAt: null }
     );
 
     const profile =
@@ -260,6 +275,48 @@ exports.verifyOtp = async (req, res) => {
     });
   } catch (error) {
     logger.error(`Error in verify OTP: ${error.message}`);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+exports.getMe = async (req, res) => {
+  try {
+    const user = await UserModel.findById(req.user.userId || req.user.id);
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const profile =
+      user.role === "agent"
+        ? await AgentModel.findOne({ userId: user._id })
+        : await CustomerModel.findOne({ userId: user._id });
+
+    const profileData = profile
+      ? { ...profile.toObject(), mobile: user.mobile, role: user.role }
+      : null;
+
+    return res.status(200).json({
+      success: true,
+      message: "Session is valid",
+      data: {
+        isProfileCompleted: user.isProfileCompleted,
+        profileId: profile?._id || "",
+        profile: profileData,
+        userId: user._id,
+        role: user.role,
+        mobile: user.mobile,
+      },
+    });
+  } catch (error) {
+    logger.error(`Error in getMe: ${error.message}`);
     return res.status(500).json({
       success: false,
       message: "Internal server error",

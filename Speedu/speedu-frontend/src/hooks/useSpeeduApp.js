@@ -51,7 +51,11 @@ import { useEffect, useMemo, useState } from "react";
       if (token) headers.Authorization = `Bearer ${token}`;
       const response = await fetch(`${API_BASE}${path}`, { ...options, headers: { ...headers, ...(options.headers || {}) } });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.success === false) throw new Error(data.message || "Request failed");
+      if (!response.ok || data.success === false) {
+        const error = new Error(data.message || "Request failed");
+        error.status = response.status;
+        throw error;
+      }
       return data;
     }
 
@@ -111,10 +115,29 @@ import { useEffect, useMemo, useState } from "react";
       localStorage.setItem("speedu_addresses", JSON.stringify(clean));
     }
 
-    function logout() {
+    function clearUserSession() {
       ["speedu_access_token","speedu_refresh_token","speedu_role","speedu_mobile",
        "speedu_user_id","speedu_profile_id","speedu_profile_type","speedu_addresses",
        "speedu_user_name","speedu_user_info"].forEach((k) => localStorage.removeItem(k));
+      setToken("");
+      setRefreshToken("");
+      setRole("customer");
+      setMobile("");
+      setUserId("");
+      setProfileId("");
+      setProfileType("");
+      setUserName("");
+      setUserInfo(null);
+      setAddresses([]);
+      setBookings([]);
+      setAgentBookings([]);
+      setDraftBooking(null);
+      setPaymentResult(null);
+      setIsUpdateProfile(false);
+    }
+
+    function logout() {
+      clearUserSession();
       location.reload();
     }
 
@@ -126,6 +149,36 @@ import { useEffect, useMemo, useState } from "react";
     }
 
     function goUpdateProfile() { setIsUpdateProfile(true); setView("profile"); }
+
+    async function validateStoredSession() {
+      if (!token) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok || result.success === false) {
+          if ([401, 403, 404].includes(response.status)) {
+            clearUserSession();
+            setView("home");
+          }
+          return;
+        }
+
+        const data = result.data || {};
+        const nextRole = data.role || role;
+        saveProfile(data.profileId || "", nextRole, data.profile);
+        saveAddresses(data.profile?.address || []);
+        setUserId(data.userId || "");
+        localStorage.setItem("speedu_user_id", data.userId || "");
+        localStorage.setItem("speedu_role", nextRole);
+        setRole(nextRole);
+      } catch {
+        // Keep the saved session on network/server errors; clear only confirmed invalid sessions.
+      }
+    }
 
     async function loadServices() {
       try { const result = await api("/service/getService"); setServices(result.data || []); }
@@ -139,7 +192,15 @@ import { useEffect, useMemo, useState } from "react";
         const result = await api(path);
         if (nextRole === "agent") setAgentBookings(result.data || []);
         else setBookings(result.data || []);
-      } catch (err) { flash(err.message, "error"); }
+      } catch (err) {
+        if ([401, 403, 404].includes(err.status)) {
+          clearUserSession();
+          setView("home");
+          flash("Session expired. Please login again.", "error");
+          return;
+        }
+        flash(err.message, "error");
+      }
     }
 
     async function loadAdminData(tokenOverride = adminToken) {
@@ -386,7 +447,10 @@ import { useEffect, useMemo, useState } from "react";
       } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
 
-    useEffect(() => { loadServices(); }, []);
+    useEffect(() => {
+      loadServices();
+      validateStoredSession();
+    }, []);
 
     return {
       view, setView, authMode, setAuthMode, role, setRole, mobile, token, refreshToken,
