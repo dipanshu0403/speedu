@@ -34,7 +34,6 @@ import { useEffect, useMemo, useState } from "react";
     const [payments, setPayments] = useState([]);
     const [draftBooking, setDraftBooking] = useState(null);
     const [paymentResult, setPaymentResult] = useState(null);
-    const [otpHint, setOtpHint] = useState("");
     const [search, setSearch] = useState("");
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
@@ -319,7 +318,7 @@ import { useEffect, useMemo, useState } from "react";
       try {
         setLoading(true);
         const result = await api(`/auth/${authMode}`, { method: "POST", body: JSON.stringify({ email: nextEmail, role: nextRole }) });
-        setOtpHint(result.data?.otp || ""); setView("otp"); flash("OTP sent successfully.");
+        setView("otp"); flash("OTP sent successfully.");
       } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
 
@@ -458,7 +457,7 @@ import { useEffect, useMemo, useState } from "react";
       userName, userInfo, isUpdateProfile,
       addresses, services, filteredServices, selectedService, selectedVariant, setSelectedVariant,
       bookings, agentBookings, adminBookings, payments, draftBooking, paymentResult,
-      otpHint, search, setSearch, message, error, toasts, loading,
+      search, setSearch, message, error, toasts, loading,
       go, goServices, logout, logoutAdmin, goUpdateProfile, dismissToast,
       loadServices, loadBookings, loadAdminData,
       createService, createVariant, removeService, removeVariant,

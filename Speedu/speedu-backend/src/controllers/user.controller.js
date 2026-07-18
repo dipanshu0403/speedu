@@ -15,17 +15,11 @@ function createOtpPayload(otp) {
   };
 }
 
-function otpResponseData(user, otp) {
-  const data = {
+function otpResponseData(user) {
+  return {
     email: user.email,
     role: user.role,
   };
-
-  if (process.env.NODE_ENV !== "production") {
-    data.otp = otp;
-  }
-
-  return data;
 }
 
 async function sendOtpToUser(email, otp) {
@@ -88,7 +82,7 @@ exports.signup = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "OTP sent successfully. Please verify to continue.",
-      data: otpResponseData(user, otpPayload.otp),
+      data: otpResponseData(user),
     });
   } catch (error) {
     logger.error(`[Error] while sign-up: ${error.message}`);
@@ -156,7 +150,7 @@ exports.login = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "OTP sent successfully. Please verify to continue.",
-      data: otpResponseData(user, otpPayload.otp),
+      data: otpResponseData(user),
     });
   } catch (error) {
     logger.error(`[Error] while login: ${error.message}`);

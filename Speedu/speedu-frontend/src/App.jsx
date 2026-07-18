@@ -32,7 +32,7 @@ import { useSpeeduApp } from "./hooks/useSpeeduApp.js";
         <Toast toasts={app.toasts} dismissToast={app.dismissToast} />
         {app.view === "home" && (<Home search={app.search} setSearch={app.setSearch} services={app.filteredServices} openService={app.openService} loadServices={app.loadServices} />)}
         {app.view === "auth" && (<Auth authMode={app.authMode} setAuthMode={app.setAuthMode} role={app.role} setRole={app.setRole} email={app.email} loading={app.loading} submitAuth={app.submitAuth} submitAdminLogin={app.submitAdminLogin} />)}
-        {app.view === "otp" && (<Otp email={app.email} otpHint={app.otpHint} loading={app.loading} verifyOtp={app.verifyOtp} />)}
+        {app.view === "otp" && (<Otp email={app.email} loading={app.loading} verifyOtp={app.verifyOtp} />)}
         {app.view === "adminLogin" && <AdminLogin loading={app.loading} submitAdminLogin={app.submitAdminLogin} />}
         {app.view === "profile" && (<Profile role={app.role} loading={app.loading} submitProfile={app.submitProfile} userInfo={app.userInfo} isUpdate={app.isUpdateProfile} services={app.services} />)}
         {app.view === "address" && <Address addresses={app.addresses} loading={app.loading} addAddress={app.addAddress} />}
