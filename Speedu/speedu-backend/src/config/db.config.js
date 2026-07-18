@@ -1,6 +1,7 @@
 const { default: mongoose } = require("mongoose");
 const dotenv = require("dotenv");
 const logger = require("../utils/logger");
+const { ensureUserAuthIndexes } = require("../models/user.model");
 dotenv.config();
 const MONGO_URI = process.env.MONGO_URI;
 
@@ -32,6 +33,7 @@ const connectDB = async () => {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     });
+    await ensureUserAuthIndexes();
   } catch (error) {
     logger.error("[DATABASE] Connection Failed:");
     setTimeout(connectDB, 5000);

@@ -24,21 +24,13 @@ exports.generateOtp = (digit) => {
   });
 }
 
-exports.normalizeIndianMobile = (mobile) => {
-  const cleanMobile = String(mobile || "").trim().replace(/[\s-]/g, "");
-  const withoutCountryCode = cleanMobile
-    .replace(/^\+91/, "")
-    .replace(/^91(?=[6-9]\d{9}$)/, "")
-    .replace(/^0(?=[6-9]\d{9}$)/, "");
+exports.normalizeEmail = (email) => {
+  const normalized = String(email || "").trim().toLowerCase();
 
-  if (!/^[6-9]\d{9}$/.test(withoutCountryCode)) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
     return null;
   }
 
-  return {
-    local: withoutCountryCode,
-    e164: `+91${withoutCountryCode}`,
-  };
+  return normalized;
 };
-
 

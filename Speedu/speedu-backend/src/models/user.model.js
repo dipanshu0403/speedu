@@ -4,8 +4,9 @@ const userSchema = new mongoose.Schema(
     {
         mobile: {
             type: String,
-            required: true,
+            required: false,
             unique: true,
+            sparse: true,
             match: /^(\+91|0)?[6789]\d{9}$/,
         },
         email: {
@@ -13,6 +14,8 @@ const userSchema = new mongoose.Schema(
             required: false,
             unique: true,
             sparse: true,
+            lowercase: true,
+            trim: true,
         },
         isActive: {
             type: Boolean,
@@ -66,5 +69,33 @@ const userSchema = new mongoose.Schema(
 );
 
 const UserModel = mongoose.model("user", userSchema);
+
+async function ensureUserAuthIndexes() {
+    const indexes = await UserModel.collection.indexes().catch((error) => {
+        if (error.codeName === "NamespaceNotFound") return [];
+        throw error;
+    });
+
+    const mobileIndex = indexes.find((index) => index.key?.mobile === 1);
+    const hasMobileIndex = mobileIndex?.unique && mobileIndex.sparse;
+    if (mobileIndex && !hasMobileIndex) {
+        await UserModel.collection.dropIndex(mobileIndex.name);
+    }
+
+    const emailIndex = indexes.find((index) => index.key?.email === 1);
+    const hasEmailIndex = emailIndex?.unique && emailIndex.sparse;
+    if (emailIndex && !hasEmailIndex) {
+        await UserModel.collection.dropIndex(emailIndex.name);
+    }
+
+    if (!hasMobileIndex) {
+        await UserModel.collection.createIndex({ mobile: 1 }, { unique: true, sparse: true, name: "mobile_1" });
+    }
+    if (!hasEmailIndex) {
+        await UserModel.collection.createIndex({ email: 1 }, { unique: true, sparse: true, name: "email_1" });
+    }
+}
+
 module.exports = UserModel;
+module.exports.ensureUserAuthIndexes = ensureUserAuthIndexes;
 

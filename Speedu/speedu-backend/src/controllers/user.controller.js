@@ -2,7 +2,8 @@ const { generateAccessToken, generateRefreshToken } = require("../middleware/aut
 const AgentModel = require("../models/agent.model");
 const CustomerModel = require("../models/customer.model");
 const UserModel = require("../models/user.model");
-const { generateOtp, normalizeIndianMobile } = require("../utils/common.utils");
+const { sendOtpEmail } = require("../services/email.service");
+const { generateOtp, normalizeEmail } = require("../utils/common.utils");
 const logger = require("../utils/logger");  
 
 const OTP_EXPIRY_MINUTES = 5;
@@ -15,30 +16,38 @@ function createOtpPayload(otp) {
 }
 
 function otpResponseData(user, otp) {
-  return {
-    mobile: user.mobile,
+  const data = {
+    email: user.email,
     role: user.role,
-    otp,
   };
+
+  if (process.env.NODE_ENV !== "production") {
+    data.otp = otp;
+  }
+
+  return data;
+}
+
+async function sendOtpToUser(email, otp) {
+  await sendOtpEmail(email, otp);
 }
 
 /*
-Signup API - Only mobile and role required
-Generates static OTP and returns it in response
+Signup API - Only email and role required
+Generates OTP and sends it to email
 */
 exports.signup = async (req, res) => {
   try {
     logger.info("SignUp API called .....");
-    const { mobile, role } = req.body;
+    const { email, role } = req.body;
 
-    if (!mobile || !role) {
+    if (!email || !role) {
       return res.status(400).json({
         success: false,
-        message: "Mobile number and role are required",
+        message: "Email and role are required",
       });
     }
 
-    // Validate role
     if (!["customer", "agent"].includes(role)) {
       return res.status(400).json({
         success: false,
@@ -46,40 +55,40 @@ exports.signup = async (req, res) => {
       });
     }
 
-    const normalizedMobile = normalizeIndianMobile(mobile);
-    if (!normalizedMobile) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
       return res.status(400).json({
         success: false,
-        message: "Please enter a valid Indian mobile number",
+        message: "Please enter a valid email address",
       });
     }
 
-    const formattedMobile = normalizedMobile.e164;
-    const isExist = await UserModel.findOne({ mobile: formattedMobile });
+    const isExist = await UserModel.findOne({ email: normalizedEmail });
 
     if (isExist) {
       return res.status(409).json({
         success: false,
-        message: "User already exists with this mobile number",
+        message: "User already exists with this email",
       });
     }
 
-    const { otp } = createOtpPayload(generateOtp(6));
+    const otpPayload = createOtpPayload(generateOtp(6));
 
-    // Create new user with OTP
     const user = await UserModel.create({
-      mobile: formattedMobile,
+      email: normalizedEmail,
       role,
-      otp,
+      ...otpPayload,
       isProfileCompleted: false,
     });
 
-    logger.info(`New user created: ${user._id} with mobile: ${formattedMobile}`);
+    await sendOtpToUser(normalizedEmail, otpPayload.otp);
+
+    logger.info(`New user created: ${user._id} with email: ${normalizedEmail}`);
 
     return res.status(201).json({
       success: true,
       message: "OTP sent successfully. Please verify to continue.",
-      data: otpResponseData(user, otp),
+      data: otpResponseData(user, otpPayload.otp),
     });
   } catch (error) {
     logger.error(`[Error] while sign-up: ${error.message}`);
@@ -92,22 +101,21 @@ exports.signup = async (req, res) => {
 };
 
 /*
-Login API - Only mobile and role required
-Generates static OTP and returns it in response
+Login API - Only email and role required
+Generates OTP and sends it to email
 */
 exports.login = async (req, res) => {
   try {
     logger.info("Login API called .....");
-    const { mobile, role } = req.body;
+    const { email, role } = req.body;
 
-    if (!mobile || !role) {
+    if (!email || !role) {
       return res.status(400).json({
         success: false,
-        message: "Mobile number and role are required",
+        message: "Email and role are required",
       });
     }
 
-    // Validate role
     if (!["customer", "agent"].includes(role)) {
       return res.status(400).json({
         success: false,
@@ -115,16 +123,15 @@ exports.login = async (req, res) => {
       });
     }
 
-    const normalizedMobile = normalizeIndianMobile(mobile);
-    if (!normalizedMobile) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
       return res.status(400).json({
         success: false,
-        message: "Please enter a valid Indian mobile number",
+        message: "Please enter a valid email address",
       });
     }
 
-    const formattedMobile = normalizedMobile.e164;
-    const user = await UserModel.findOne({ mobile: formattedMobile });
+    const user = await UserModel.findOne({ email: normalizedEmail });
 
     if (!user) {
       return res.status(404).json({
@@ -133,7 +140,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check if role matches
     if (user.role !== role) {
       return res.status(403).json({
         success: false,
@@ -141,15 +147,16 @@ exports.login = async (req, res) => {
       });
     }
 
-    const { otp } = createOtpPayload(generateOtp(6));
-    await UserModel.updateOne({ mobile: formattedMobile }, { otp });
+    const otpPayload = createOtpPayload(generateOtp(6));
+    await UserModel.updateOne({ email: normalizedEmail }, otpPayload);
+    await sendOtpToUser(normalizedEmail, otpPayload.otp);
 
-    logger.info(`User login OTP sent: ${user._id} with mobile: ${formattedMobile}`);
+    logger.info(`User login OTP sent: ${user._id} with email: ${normalizedEmail}`);
 
     return res.status(200).json({
       success: true,
       message: "OTP sent successfully. Please verify to continue.",
-      data: otpResponseData(user, otp),
+      data: otpResponseData(user, otpPayload.otp),
     });
   } catch (error) {
     logger.error(`[Error] while login: ${error.message}`);
@@ -161,38 +168,28 @@ exports.login = async (req, res) => {
   }
 };
 
-// Verify OTP - Verify static OTP
-/*
-1. Verify static OTP
-2. Check if user exists
-3. Check if profile is completed
-4. Generate JWT tokens
-5. Send welcome email if new user
-6. Send profile completion email if profile not completed
-*/
 exports.verifyOtp = async (req, res) => {
   try {
     logger.info(`Verify OTP API called.`);
 
-    const { otp, mobile, role } = req.body;
+    const { otp, email, role } = req.body;
 
-    if (!otp || !mobile || !role) {
+    if (!otp || !email || !role) {
       return res.status(400).json({
         success: false,
-        message: "OTP, mobile number, and role are required",
+        message: "OTP, email, and role are required",
       });
     }
 
-    const normalizedMobile = normalizeIndianMobile(mobile);
-    if (!normalizedMobile) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
       return res.status(400).json({
         success: false,
-        message: "Please enter a valid Indian mobile number",
+        message: "Please enter a valid email address",
       });
     }
 
-    const formattedMobile = normalizedMobile.e164;
-    const user = await UserModel.findOne({ mobile: formattedMobile });
+    const user = await UserModel.findOne({ email: normalizedEmail });
 
     if (!user) {
       return res.status(404).json({
@@ -217,6 +214,13 @@ exports.verifyOtp = async (req, res) => {
       });
     }
 
+    if (user.otpExpiresAt && user.otpExpiresAt.getTime() < Date.now()) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired OTP",
+      });
+    }
+
     // Check user status
     if (!user.isActive || user.isBlock) {
       return res.status(403).json({
@@ -230,7 +234,7 @@ exports.verifyOtp = async (req, res) => {
       id: user._id.toString(),
       userId: user._id.toString(),
       email: user.email || "",
-      mobile: user.mobile,
+      mobile: user.mobile || "",
       role: user.role,
       isActive: user.isActive,
       isFreeze: user.isFreeze,
@@ -255,7 +259,7 @@ exports.verifyOtp = async (req, res) => {
         ? await AgentModel.findOne({ userId: user._id })
         : await CustomerModel.findOne({ userId: user._id });
     const profileData = profile
-      ? { ...profile.toObject(), mobile: user.mobile, role: user.role }
+      ? { ...profile.toObject(), email: user.email, mobile: user.mobile, role: user.role }
       : null;
 
     logger.info(`OTP verified successfully for user: ${user._id}`);
@@ -300,7 +304,7 @@ exports.getMe = async (req, res) => {
         : await CustomerModel.findOne({ userId: user._id });
 
     const profileData = profile
-      ? { ...profile.toObject(), mobile: user.mobile, role: user.role }
+      ? { ...profile.toObject(), email: user.email, mobile: user.mobile, role: user.role }
       : null;
 
     return res.status(200).json({
@@ -312,6 +316,7 @@ exports.getMe = async (req, res) => {
         profile: profileData,
         userId: user._id,
         role: user.role,
+        email: user.email,
         mobile: user.mobile,
       },
     });

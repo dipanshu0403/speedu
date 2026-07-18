@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
     const [view, setView] = useState("home");
     const [authMode, setAuthMode] = useState("login");
     const [role, setRole] = useState(read("speedu_role", "customer"));
-    const [mobile, setMobile] = useState("");
+    const [email, setEmail] = useState(read("speedu_email", ""));
     const [token, setToken] = useState(read("speedu_access_token"));
     const [refreshToken, setRefreshToken] = useState(read("speedu_refresh_token"));
     const [adminToken, setAdminToken] = useState(read("speedu_admin_access_token"));
@@ -116,13 +116,13 @@ import { useEffect, useMemo, useState } from "react";
     }
 
     function clearUserSession() {
-      ["speedu_access_token","speedu_refresh_token","speedu_role","speedu_mobile",
+      ["speedu_access_token","speedu_refresh_token","speedu_role","speedu_email",
        "speedu_user_id","speedu_profile_id","speedu_profile_type","speedu_addresses",
        "speedu_user_name","speedu_user_info"].forEach((k) => localStorage.removeItem(k));
       setToken("");
       setRefreshToken("");
       setRole("customer");
-      setMobile("");
+      setEmail("");
       setUserId("");
       setProfileId("");
       setProfileType("");
@@ -311,14 +311,14 @@ import { useEffect, useMemo, useState } from "react";
     async function submitAuth(event) {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
-      const nextMobile = form.get("mobile").trim();
+      const nextEmail = form.get("email").trim().toLowerCase();
       const nextRole = form.get("role");
-      setMobile(nextMobile); setRole(nextRole);
-      localStorage.setItem("speedu_mobile", nextMobile);
+      setEmail(nextEmail); setRole(nextRole);
+      localStorage.setItem("speedu_email", nextEmail);
       localStorage.setItem("speedu_role", nextRole);
       try {
         setLoading(true);
-        const result = await api(`/auth/${authMode}`, { method: "POST", body: JSON.stringify({ mobile: nextMobile, role: nextRole }) });
+        const result = await api(`/auth/${authMode}`, { method: "POST", body: JSON.stringify({ email: nextEmail, role: nextRole }) });
         setOtpHint(result.data?.otp || ""); setView("otp"); flash("OTP sent successfully.");
       } catch (err) { flash(err.message, "error"); } finally { setLoading(false); }
     }
@@ -345,7 +345,7 @@ import { useEffect, useMemo, useState } from "react";
       const otp = new FormData(event.currentTarget).get("otp").trim();
       try {
         setLoading(true);
-        const result = await api("/auth/verify-otp", { method: "POST", body: JSON.stringify({ mobile, role, otp }) });
+        const result = await api("/auth/verify-otp", { method: "POST", body: JSON.stringify({ email, role, otp }) });
         const data = result.data || {};
         const nextRole = data.role || role;
         const nextProfileId = data.profileId || "";
@@ -453,7 +453,7 @@ import { useEffect, useMemo, useState } from "react";
     }, []);
 
     return {
-      view, setView, authMode, setAuthMode, role, setRole, mobile, token, refreshToken,
+      view, setView, authMode, setAuthMode, role, setRole, email, token, refreshToken,
       adminToken, adminEmail, userId, profileId, profileType,
       userName, userInfo, isUpdateProfile,
       addresses, services, filteredServices, selectedService, selectedVariant, setSelectedVariant,

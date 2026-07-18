@@ -4,7 +4,7 @@ import { Button } from "../ui/Button.jsx";
 import { Card } from "../ui/Card.jsx";
 import { Field } from "../ui/Field.jsx";
 
-export function Auth({ authMode, setAuthMode, role, setRole, mobile, loading, submitAuth, submitAdminLogin }) {
+export function Auth({ authMode, setAuthMode, role, setRole, email, loading, submitAuth, submitAdminLogin }) {
   const isAdmin = role === "admin";
 
   useEffect(() => {
@@ -16,7 +16,7 @@ export function Auth({ authMode, setAuthMode, role, setRole, mobile, loading, su
       <Card className="w-full max-w-md p-8">
         <h2 className="text-2xl font-bold text-slate-900">{authMode === "login" ? "Welcome back" : "Create account"}</h2>
         <p className="mt-2 text-sm text-slate-600">
-          {isAdmin ? "Sign in with admin credentials." : "Enter your mobile number and choose your role."}
+          {isAdmin ? "Sign in with admin credentials." : "Enter your email and choose your role."}
         </p>
         <div className="mt-6 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
           <button
@@ -56,8 +56,8 @@ export function Auth({ authMode, setAuthMode, role, setRole, mobile, loading, su
               </Field>
             </>
           ) : (
-            <Field label="Mobile">
-              <input name="mobile" defaultValue={mobile} maxLength="10" pattern="[6-9][0-9]{9}" placeholder="10-digit mobile" required />
+            <Field label="Email">
+              <input type="email" name="email" defaultValue={email} placeholder="you@example.com" required />
             </Field>
           )}
           <Button variant="primary" className="w-full" disabled={loading} type="submit">
@@ -74,7 +74,7 @@ export function Auth({ authMode, setAuthMode, role, setRole, mobile, loading, su
         {!isAdmin && (
           <p className="mt-6 flex items-center gap-2 text-xs text-slate-500">
             <ShieldCheck className="h-4 w-4 text-emerald-600" aria-hidden />
-            Your number is used only for secure login with OTP.
+            Your email is used only for secure login with OTP.
           </p>
         )}
       </Card>
