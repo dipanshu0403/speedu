@@ -18,20 +18,29 @@ async function sendOtpEmail(email, otp) {
   const transporter = createTransporter();
   const from = process.env.EMAIL_FROM || process.env.EMAIL_USER;
 
-  await transporter.sendMail({
-    from,
-    to: email,
-    subject: "Your Speedu OTP",
-    text: `Your Speedu OTP is ${otp}. It expires in 5 minutes.`,
-    html: `
-      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a">
-        <h2>Your Speedu OTP</h2>
-        <p>Use this code to continue:</p>
-        <p style="font-size:28px;font-weight:700;letter-spacing:4px">${otp}</p>
-        <p>This OTP expires in 5 minutes.</p>
-      </div>
-    `,
-  });
+  try {
+    await transporter.sendMail({
+      from,
+      to: email,
+      subject: "Your Speedu OTP",
+      text: `Your Speedu OTP is ${otp}. It expires in 5 minutes.`,
+      html: `
+        <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a">
+          <h2>Your Speedu OTP</h2>
+          <p>Use this code to continue:</p>
+          <p style="font-size:28px;font-weight:700;letter-spacing:4px">${otp}</p>
+          <p>This OTP expires in 5 minutes.</p>
+        </div>
+      `,
+    });
+  } catch (error) {
+    if (error.code === "EAUTH" || error.responseCode === 535) {
+      error.publicMessage = "Email service credentials are invalid. Please check EMAIL_USER and EMAIL_PASS.";
+    } else {
+      error.publicMessage = "Could not send OTP email. Please try again.";
+    }
+    throw error;
+  }
 
   return { sent: true, provider: "gmail" };
 }

@@ -94,7 +94,7 @@ exports.signup = async (req, res) => {
     logger.error(`[Error] while sign-up: ${error.message}`);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: error.publicMessage || "Internal server error",
       error: error.message,
     });
   }
@@ -162,7 +162,7 @@ exports.login = async (req, res) => {
     logger.error(`[Error] while login: ${error.message}`);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: error.publicMessage || "Internal server error",
       error: error.message,
     });
   }
