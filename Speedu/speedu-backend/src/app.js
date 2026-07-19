@@ -4,10 +4,9 @@ const helmet = require("helmet");
 const path = require('path')
 const compression = require("compression");
 const router = require("./router");
-const bodyParser = require('body-parser')
 const app = express();
 
-app.use(express.json({ extended: true }));
+app.use(express.json());
 
 app.use(
   cors({
@@ -36,16 +35,16 @@ app.use((req, res, next) => {
   }
 
   if (contentType.includes("application/json")) {
-    return bodyParser.json()(req, res, next);
+    return express.json()(req, res, next);
   }
 
   if (contentType.includes("application/x-www-form-urlencoded")) {
-    return bodyParser.urlencoded({ extended: true })(req, res, next);
+    return express.urlencoded({ extended: true })(req, res, next);
   }
 
-  bodyParser.json()(req, res, (err) => {
+  express.json()(req, res, (err) => {
     if (err) return next(err);
-    bodyParser.urlencoded({ extended: true })(req, res, next);
+    express.urlencoded({ extended: true })(req, res, next);
   });
 });
 

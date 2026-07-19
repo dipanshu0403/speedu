@@ -3,7 +3,6 @@ const agentModel = require("../../models/agent.model");
 const UserModel = require("../../models/user.model");
 const logger = require("../../utils/logger");
 const serviceModel = require("../../models/service.model");
-const { messaging } = require("firebase-admin");
 
 function readSelectedServices(body) {
   const raw = body.services || body.serviceIds || body.selectedServices || [];
